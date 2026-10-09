@@ -47,6 +47,10 @@ export class KeyboardInput {
     window.addEventListener('blur', this.onBlur);
   }
 
+  /**
+   * Turns game key capture on or off. Turning it off also releases every key,
+   * so nothing held during a pause is applied after resuming.
+   */
   setEnabled(enabled: boolean): void {
     // Only act on a real change: being told "enabled" again while already
     // enabled must not release the keys the player is holding.

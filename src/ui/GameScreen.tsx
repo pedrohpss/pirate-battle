@@ -1,7 +1,9 @@
-import { useState, useSyncExternalStore } from 'react';
+import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import type { GameConfig } from '../game/config';
 import { GameCanvas } from '../game/GameCanvas';
 import { MatchStore } from '../game/session/MatchStore';
+import type { MatchResult } from '../settings/lastResult';
+import { optionsFromConfig } from '../settings/options';
 import { Hud } from './Hud';
 import { PauseDialog } from './PauseDialog';
 import { ResultDialog } from './ResultDialog';
@@ -10,7 +12,10 @@ interface GameScreenProps {
   config: GameConfig;
   /** Starts a brand new match (the parent remounts this screen). */
   onPlayAgain: () => void;
-  onMainMenu?: () => void;
+  /** Leaves the match. If it was not finished, it is simply abandoned. */
+  onMainMenu: () => void;
+  /** Called exactly once, when the match finishes (by time or by death). */
+  onMatchEnded: (result: MatchResult) => void;
 }
 
 /**
@@ -20,11 +25,26 @@ interface GameScreenProps {
  * throws the old one away completely. That guarantees a clean restart:
  * new store, new simulation, new canvas, and the old ones destroyed.
  */
-export function GameScreen({ config, onPlayAgain, onMainMenu }: GameScreenProps) {
+export function GameScreen({ config, onPlayAgain, onMainMenu, onMatchEnded }: GameScreenProps) {
   // One store per match, created once when the screen mounts.
   const [store] = useState(() => new MatchStore());
   // Re-renders only when the store says something changed.
   const match = useSyncExternalStore(store.subscribe, store.getSnapshot);
+
+  // Report the result once. The ref guarantees a single report even if
+  // React runs this effect again (Strict Mode, re-renders).
+  const reportedRef = useRef(false);
+  useEffect(() => {
+    if (match.status !== 'ended' || !match.endReason || reportedRef.current) return;
+    reportedRef.current = true;
+    onMatchEnded({
+      score: match.score,
+      timePlayed: match.timePlayed,
+      endReason: match.endReason,
+      endedAt: new Date().toISOString(),
+      options: optionsFromConfig(config),
+    });
+  }, [match, config, onMatchEnded]);
 
   const inMatch = match.status === 'running' || match.status === 'paused' || match.status === 'ended';
 
