@@ -2,8 +2,8 @@ import { clamp } from './math';
 import type { Rect, Vector2 } from './types';
 
 /**
- * Collision helpers. Ships are treated as circles and islands as rectangles,
- * which is cheap to compute and easy to reason about.
+ * Collision helpers. Ships and projectiles are treated as circles and
+ * islands as rectangles, which is cheap to compute and easy to reason about.
  */
 
 /** Closest point inside `rect` to `point`. */
@@ -20,6 +20,19 @@ export function circleIntersectsRect(center: Vector2, radius: number, rect: Rect
   const dx = center.x - closest.x;
   const dy = center.y - closest.y;
   return dx * dx + dy * dy < radius * radius;
+}
+
+/** True when two circles overlap. */
+export function circlesOverlap(
+  centerA: Vector2,
+  radiusA: number,
+  centerB: Vector2,
+  radiusB: number,
+): boolean {
+  const dx = centerB.x - centerA.x;
+  const dy = centerB.y - centerA.y;
+  const minDistance = radiusA + radiusB;
+  return dx * dx + dy * dy < minDistance * minDistance;
 }
 
 /**
@@ -58,4 +71,28 @@ export function pushCircleOutOfRect(center: Vector2, radius: number, rect: Rect)
   else if (nearest === toRight) center.x = rect.x + rect.width + radius;
   else if (nearest === toTop) center.y = rect.y - radius;
   else center.y = rect.y + rect.height + radius;
+}
+
+/**
+ * If two circles overlap, pushes both apart by half the overlap each.
+ * Used so enemy ships do not stack on top of each other.
+ */
+export function separateCircles(
+  centerA: Vector2,
+  radiusA: number,
+  centerB: Vector2,
+  radiusB: number,
+): void {
+  const dx = centerB.x - centerA.x;
+  const dy = centerB.y - centerA.y;
+  const distance = Math.hypot(dx, dy);
+  const overlap = radiusA + radiusB - distance;
+  if (overlap <= 0 || distance === 0) return;
+
+  const pushX = (dx / distance) * (overlap / 2);
+  const pushY = (dy / distance) * (overlap / 2);
+  centerA.x -= pushX;
+  centerA.y -= pushY;
+  centerB.x += pushX;
+  centerB.y += pushY;
 }

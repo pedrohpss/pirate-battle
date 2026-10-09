@@ -26,18 +26,39 @@ export interface PlayerInput {
   fireRight: boolean;
 }
 
-/** Position and facing direction of a ship. */
-export interface ShipState {
-  position: Vector2;
-  /** Facing direction in radians. 0 = right, PI/2 = down, -PI/2 = up. */
-  angle: number;
-}
-
 /** The three cannon positions of a ship. */
 export type WeaponSlot = 'front' | 'left' | 'right';
 
 /** Who fired a projectile: player shots hit enemies and vice versa. */
 export type Team = 'player' | 'enemy';
+
+export type EnemyKind = 'chaser' | 'shooter';
+
+/** Every kind of ship, used by the renderer to pick textures. */
+export type ShipKind = 'player' | EnemyKind;
+
+/** Data shared by every ship in the arena. */
+export interface Ship {
+  /** Unique number, used by the renderer to match a sprite to this ship. */
+  id: number;
+  position: Vector2;
+  /** Facing direction in radians. 0 = right, PI/2 = down, -PI/2 = up. */
+  angle: number;
+  health: number;
+  maxHealth: number;
+  radius: number;
+}
+
+export interface PlayerShip extends Ship {
+  /** Seconds left until each cannon can fire again (0 = ready). */
+  cooldowns: Record<WeaponSlot, number>;
+}
+
+export interface EnemyShip extends Ship {
+  kind: EnemyKind;
+  /** Seconds until the Shooter can fire again (unused by Chasers). */
+  fireCooldown: number;
+}
 
 /** A cannonball flying through the arena. */
 export interface Projectile {
@@ -59,5 +80,6 @@ export interface Projectile {
  * without the simulation knowing anything about effects or sounds.
  */
 export type GameEvent =
-  | { type: 'shotFired'; slot: WeaponSlot; position: Vector2; angle: number }
-  | { type: 'projectileImpact'; position: Vector2; surface: 'island' | 'water' };
+  | { type: 'shotFired'; team: Team; position: Vector2; angle: number }
+  | { type: 'projectileImpact'; position: Vector2; surface: 'island' | 'water' | 'ship' }
+  | { type: 'shipDestroyed'; kind: ShipKind; position: Vector2; angle: number };

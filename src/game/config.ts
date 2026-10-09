@@ -34,6 +34,32 @@ export interface WeaponConfig {
   damage: number;
 }
 
+/** Values shared by every ship (player and enemies). */
+export interface ShipConfig {
+  maxHealth: number;
+  /** Forward speed in world units per second. */
+  moveSpeed: number;
+  /** Turning speed in radians per second. */
+  turnSpeed: number;
+  /** Collision radius, used for arena limits, islands and hits. */
+  radius: number;
+}
+
+export interface ChaserConfig extends ShipConfig {
+  /** Damage dealt to the player when the Chaser rams into it (and explodes). */
+  contactDamage: number;
+}
+
+export interface ShooterConfig extends ShipConfig {
+  /** The Shooter stops approaching when this close to the player. */
+  preferredDistance: number;
+  /** The Shooter only fires when the player is within this distance. */
+  attackRange: number;
+  /** How well aimed (in radians) the Shooter must be before firing. */
+  aimTolerance: number;
+  weapon: WeaponConfig;
+}
+
 export interface GameConfig {
   /** Size of the playable area in world units (independent of screen size). */
   arena: { width: number; height: number };
@@ -48,18 +74,30 @@ export interface GameConfig {
   islandColliderInset: number;
   /** Collision radius of every cannonball. */
   projectileRadius: number;
-  player: {
-    /** Forward speed in world units per second. */
-    moveSpeed: number;
-    /** Turning speed in radians per second. */
-    turnSpeed: number;
-    /** Collision radius, used for arena limits, islands and hits. */
-    radius: number;
+  player: ShipConfig & {
     /** Single cannon at the bow. */
     frontWeapon: WeaponConfig;
     /** Broadside cannons; left and right each have their own cooldown. */
     sideWeapon: WeaponConfig;
   };
+  spawn: {
+    /** Seconds between enemy spawns (exposed in the Options screen). */
+    interval: number;
+    /** Seconds before the first enemy appears. */
+    firstSpawnDelay: number;
+    /** Chance (0 to 1) that a new enemy is a Chaser; otherwise a Shooter. */
+    chaserChance: number;
+    /** No new enemies spawn while this many are alive. */
+    maxAlive: number;
+    /** Enemies never spawn closer than this to the player. */
+    minDistanceFromPlayer: number;
+    /** Extra free space required around a spawn point (islands, other ships). */
+    clearance: number;
+    /** Random positions tried before giving up on a spawn. */
+    maxAttempts: number;
+  };
+  chaser: ChaserConfig;
+  shooter: ShooterConfig;
 }
 
 export const DEFAULT_GAME_CONFIG: GameConfig = {
@@ -73,6 +111,7 @@ export const DEFAULT_GAME_CONFIG: GameConfig = {
   islandColliderInset: 10,
   projectileRadius: 5,
   player: {
+    maxHealth: 150,
     moveSpeed: 180,
     turnSpeed: 2.5,
     radius: 30,
@@ -93,6 +132,40 @@ export const DEFAULT_GAME_CONFIG: GameConfig = {
       projectileSpeed: 420,
       projectileRange: 380,
       damage: 20,
+    },
+  },
+  spawn: {
+    interval: 4,
+    firstSpawnDelay: 1,
+    chaserChance: 0.5,
+    maxAlive: 10,
+    minDistanceFromPlayer: 450,
+    clearance: 20,
+    maxAttempts: 30,
+  },
+  chaser: {
+    maxHealth: 40,
+    moveSpeed: 130,
+    turnSpeed: 2,
+    radius: 28,
+    contactDamage: 20,
+  },
+  shooter: {
+    maxHealth: 60,
+    moveSpeed: 100,
+    turnSpeed: 1.6,
+    radius: 30,
+    preferredDistance: 260,
+    attackRange: 380,
+    aimTolerance: 0.2,
+    weapon: {
+      cooldown: 2,
+      projectileCount: 1,
+      spacing: 0,
+      muzzleOffset: 55,
+      projectileSpeed: 320,
+      projectileRange: 420,
+      damage: 10,
     },
   },
 };

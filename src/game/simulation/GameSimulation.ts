@@ -1,14 +1,24 @@
 import type { GameConfig, WeaponConfig } from '../config';
-import { circleIntersectsRect, pushCircleOutOfRect } from './collision';
+import {
+  circleIntersectsRect,
+  circlesOverlap,
+  pushCircleOutOfRect,
+  separateCircles,
+} from './collision';
+import { decideEnemyAction } from './enemyAI';
 import { getIslandCollider } from './islands';
-import { clamp } from './math';
+import { angleTo, clamp } from './math';
 import { createVolley } from './projectiles';
+import { findSpawnPosition, pickEnemyKind } from './spawning';
 import type {
+  EnemyShip,
   GameEvent,
   PlayerInput,
+  PlayerShip,
   Projectile,
   Rect,
-  ShipState,
+  Ship,
+  Team,
   WeaponSlot,
 } from './types';
 
@@ -21,38 +31,65 @@ const WEAPON_SLOTS: WeaponSlot[] = ['front', 'left', 'right'];
  */
 export class GameSimulation {
   readonly config: GameConfig;
-  readonly player: ShipState;
   /** Island hitboxes. Ships and projectiles cannot pass through them. */
   readonly obstacles: Rect[];
+  readonly player: PlayerShip;
+  enemies: EnemyShip[] = [];
   /** Every cannonball currently flying. */
   projectiles: Projectile[] = [];
+  /** Enemies destroyed by the player's cannons. */
+  score = 0;
+  /** True once the player has been destroyed. The simulation stops. */
+  isOver = false;
 
-  /** Seconds left until each player cannon can fire again (0 = ready). */
-  private readonly playerCooldowns: Record<WeaponSlot, number> = {
-    front: 0,
-    left: 0,
-    right: 0,
-  };
+  /** Source of randomness. Can be replaced by a seeded one in tests. */
+  private readonly random: () => number;
   /** Events produced since the last call to drainEvents(). */
   private events: GameEvent[] = [];
   private nextEntityId = 1;
+  /** Seconds until the next enemy spawn. */
+  private spawnTimer: number;
+  /** How many enemies have spawned so far in this match. */
+  private spawnCount = 0;
 
-  constructor(config: GameConfig) {
+  constructor(config: GameConfig, random: () => number = Math.random) {
     this.config = config;
+    this.random = random;
+    this.spawnTimer = config.spawn.firstSpawnDelay;
     this.obstacles = config.islands.map((island) =>
       getIslandCollider(island, config.tileSize, config.islandColliderInset),
     );
     this.player = {
+      id: this.createId(),
       position: { x: config.arena.width / 2, y: config.arena.height / 2 },
       angle: -Math.PI / 2, // start facing up
+      health: config.player.maxHealth,
+      maxHealth: config.player.maxHealth,
+      radius: config.player.radius,
+      cooldowns: { front: 0, left: 0, right: 0 },
     };
   }
 
   /** Advances the game by `dt` seconds. Called once per frame. */
   update(dt: number, input: PlayerInput): void {
+    if (this.isOver) return;
+
     this.updatePlayer(dt, input);
     this.updatePlayerWeapons(dt, input);
+    this.updateSpawning(dt);
+    this.updateEnemies(dt);
     this.updateProjectiles(dt);
+    this.removeDestroyedEnemies();
+
+    if (this.player.health <= 0) {
+      this.isOver = true;
+      this.events.push({
+        type: 'shipDestroyed',
+        kind: 'player',
+        position: { ...this.player.position },
+        angle: this.player.angle,
+      });
+    }
   }
 
   /**
@@ -65,43 +102,24 @@ export class GameSimulation {
     return events;
   }
 
+  private createId(): number {
+    return this.nextEntityId++;
+  }
+
   // ---------------------------------------------------------------- player
 
   private updatePlayer(dt: number, input: PlayerInput): void {
-    const { moveSpeed, turnSpeed, radius } = this.config.player;
+    const { moveSpeed, turnSpeed } = this.config.player;
     const ship = this.player;
 
-    // 1. Rotation: angular speed (rad/s) multiplied by elapsed time (s).
+    // Rotation: angular speed (rad/s) multiplied by elapsed time (s).
     if (input.turnLeft) ship.angle -= turnSpeed * dt;
     if (input.turnRight) ship.angle += turnSpeed * dt;
 
-    // 2. Forward movement: cos/sin of the angle give the facing direction.
-    if (input.forward) {
-      ship.position.x += Math.cos(ship.angle) * moveSpeed * dt;
-      ship.position.y += Math.sin(ship.angle) * moveSpeed * dt;
-    }
+    if (input.forward) this.moveForward(ship, moveSpeed, dt);
 
-    // 3. Islands: if the ship moved into one, push it back to the coast.
-    this.resolveIslandCollisions(ship, radius);
-
-    // 4. Arena limits: keep the whole ship inside the visible area.
-    this.keepInsideArena(ship, radius);
+    this.keepShipInPlayableArea(ship);
   }
-
-  /** Pushes a ship (treated as a circle) out of every island it overlaps. */
-  private resolveIslandCollisions(ship: ShipState, radius: number): void {
-    for (const obstacle of this.obstacles) {
-      pushCircleOutOfRect(ship.position, radius, obstacle);
-    }
-  }
-
-  private keepInsideArena(ship: ShipState, radius: number): void {
-    const { width, height } = this.config.arena;
-    ship.position.x = clamp(ship.position.x, radius, width - radius);
-    ship.position.y = clamp(ship.position.y, radius, height - radius);
-  }
-
-  // --------------------------------------------------------------- weapons
 
   /**
    * Each cannon has its own cooldown timer. Holding the fire key shoots
@@ -113,41 +131,179 @@ export class GameSimulation {
       left: input.fireLeft,
       right: input.fireRight,
     };
+    const { cooldowns } = this.player;
+    const { frontWeapon, sideWeapon } = this.config.player;
 
     for (const slot of WEAPON_SLOTS) {
       // Count the timer down, never below zero.
-      this.playerCooldowns[slot] = Math.max(0, this.playerCooldowns[slot] - dt);
+      cooldowns[slot] = Math.max(0, cooldowns[slot] - dt);
+      if (!wantsToFire[slot] || cooldowns[slot] > 0) continue;
 
-      if (!wantsToFire[slot] || this.playerCooldowns[slot] > 0) continue;
-
-      const weapon = this.getPlayerWeapon(slot);
-      this.fire(this.player, slot, weapon);
-      this.playerCooldowns[slot] = weapon.cooldown;
+      const weapon = slot === 'front' ? frontWeapon : sideWeapon;
+      this.fire(this.player, slot, weapon, 'player');
+      cooldowns[slot] = weapon.cooldown;
     }
   }
 
-  private getPlayerWeapon(slot: WeaponSlot): WeaponConfig {
-    const { frontWeapon, sideWeapon } = this.config.player;
-    return slot === 'front' ? frontWeapon : sideWeapon;
+  // --------------------------------------------------------- ship helpers
+
+  /** Moves a ship in the direction it is facing. cos/sin give that direction. */
+  private moveForward(ship: Ship, speed: number, dt: number): void {
+    ship.position.x += Math.cos(ship.angle) * speed * dt;
+    ship.position.y += Math.sin(ship.angle) * speed * dt;
   }
 
-  private fire(ship: ShipState, slot: WeaponSlot, weapon: WeaponConfig): void {
+  /** Pushes a ship out of islands and keeps it fully inside the arena. */
+  private keepShipInPlayableArea(ship: Ship): void {
+    for (const obstacle of this.obstacles) {
+      pushCircleOutOfRect(ship.position, ship.radius, obstacle);
+    }
+    const { width, height } = this.config.arena;
+    ship.position.x = clamp(ship.position.x, ship.radius, width - ship.radius);
+    ship.position.y = clamp(ship.position.y, ship.radius, height - ship.radius);
+  }
+
+  private fire(ship: Ship, slot: WeaponSlot, weapon: WeaponConfig, team: Team): void {
     const volley = createVolley({
       shipPosition: ship.position,
       shipAngle: ship.angle,
       slot,
       weapon,
-      team: 'player',
+      team,
       projectileRadius: this.config.projectileRadius,
-      nextId: () => this.nextEntityId++,
+      nextId: () => this.createId(),
     });
 
     this.projectiles.push(...volley.projectiles);
     this.events.push({
       type: 'shotFired',
-      slot,
+      team,
       position: volley.muzzlePosition,
       angle: volley.angle,
+    });
+  }
+
+  // --------------------------------------------------------------- enemies
+
+  /** Counts down to the next spawn and creates an enemy when it is time. */
+  private updateSpawning(dt: number): void {
+    this.spawnTimer -= dt;
+    if (this.spawnTimer > 0) return;
+    this.spawnTimer = this.config.spawn.interval;
+
+    if (this.enemies.length >= this.config.spawn.maxAlive) return;
+
+    const kind = pickEnemyKind(this.spawnCount, this.config.spawn.chaserChance, this.random);
+    const stats = kind === 'chaser' ? this.config.chaser : this.config.shooter;
+
+    const position = findSpawnPosition({
+      config: this.config,
+      radius: stats.radius,
+      playerPosition: this.player.position,
+      obstacles: this.obstacles,
+      ships: [this.player, ...this.enemies],
+      random: this.random,
+    });
+    if (!position) return; // no safe place right now; try again next interval
+
+    this.spawnCount += 1;
+    this.enemies.push({
+      id: this.createId(),
+      kind,
+      position,
+      angle: angleTo(position, this.player.position), // born facing the player
+      health: stats.maxHealth,
+      maxHealth: stats.maxHealth,
+      radius: stats.radius,
+      // A full cooldown at birth gives the player time to react.
+      fireCooldown: this.config.shooter.weapon.cooldown,
+    });
+  }
+
+  private updateEnemies(dt: number): void {
+    const alive = this.enemies.filter((enemy) => enemy.health > 0);
+
+    // 1. Think and move.
+    const decisions = alive.map((enemy) => {
+      const decision = decideEnemyAction(enemy, this.player.position, this.config, dt);
+      const stats = enemy.kind === 'chaser' ? this.config.chaser : this.config.shooter;
+      if (decision.moveForward) this.moveForward(enemy, stats.moveSpeed, dt);
+      return decision;
+    });
+
+    // 2. Keep enemies from stacking on top of each other.
+    for (let i = 0; i < alive.length; i++) {
+      for (let j = i + 1; j < alive.length; j++) {
+        const a = alive[i];
+        const b = alive[j];
+        separateCircles(a.position, a.radius, b.position, b.radius);
+      }
+    }
+
+    // 3. Collisions with the map, shooting and ramming.
+    alive.forEach((enemy, index) => {
+      this.keepShipInPlayableArea(enemy);
+
+      if (enemy.kind === 'shooter') {
+        this.updateShooterWeapon(enemy, decisions[index].wantsToFire, dt);
+      } else {
+        this.checkChaserImpact(enemy);
+      }
+    });
+  }
+
+  private updateShooterWeapon(enemy: EnemyShip, wantsToFire: boolean, dt: number): void {
+    const { weapon } = this.config.shooter;
+    enemy.fireCooldown = Math.max(0, enemy.fireCooldown - dt);
+    if (!wantsToFire || enemy.fireCooldown > 0) return;
+
+    this.fire(enemy, 'front', weapon, 'enemy');
+    enemy.fireCooldown = weapon.cooldown;
+  }
+
+  /** A Chaser touching the player damages it and explodes (no points). */
+  private checkChaserImpact(chaser: EnemyShip): void {
+    const touching = circlesOverlap(
+      chaser.position,
+      chaser.radius,
+      this.player.position,
+      this.player.radius,
+    );
+    if (!touching) return;
+
+    this.damagePlayer(this.config.chaser.contactDamage);
+    chaser.health = 0;
+    this.pushShipDestroyed(chaser);
+  }
+
+  /** Removes enemies with no health left, so they stop acting and colliding. */
+  private removeDestroyedEnemies(): void {
+    this.enemies = this.enemies.filter((enemy) => enemy.health > 0);
+  }
+
+  // ---------------------------------------------------------------- damage
+
+  private damagePlayer(amount: number): void {
+    this.player.health = Math.max(0, this.player.health - amount);
+  }
+
+  /** Damages an enemy. If it is destroyed here, the player scores 1 point. */
+  private damageEnemyByPlayer(enemy: EnemyShip, amount: number): void {
+    if (enemy.health <= 0) return; // already destroyed: never score twice
+    enemy.health = Math.max(0, enemy.health - amount);
+
+    if (enemy.health === 0) {
+      this.score += 1;
+      this.pushShipDestroyed(enemy);
+    }
+  }
+
+  private pushShipDestroyed(enemy: EnemyShip): void {
+    this.events.push({
+      type: 'shipDestroyed',
+      kind: enemy.kind,
+      position: { ...enemy.position },
+      angle: enemy.angle,
     });
   }
 
@@ -166,34 +322,55 @@ export class GameSimulation {
     projectile.position.y += projectile.velocity.y * dt;
     projectile.remainingTime -= dt;
 
-    // Hit an island: removed, with an impact effect.
+    // 1. Hit an island: removed, with an impact effect.
     const hitIsland = this.obstacles.some((obstacle) =>
       circleIntersectsRect(projectile.position, projectile.radius, obstacle),
     );
     if (hitIsland) {
-      this.events.push({
-        type: 'projectileImpact',
-        position: { ...projectile.position },
-        surface: 'island',
-      });
+      this.pushImpact(projectile, 'island');
       return false;
     }
 
-    // Reached its maximum range: falls into the water.
+    // 2. Hit a ship of the other team: applies damage once and is removed.
+    if (this.tryHitShip(projectile)) {
+      this.pushImpact(projectile, 'ship');
+      return false;
+    }
+
+    // 3. Reached its maximum range: falls into the water.
     if (projectile.remainingTime <= 0) {
-      this.events.push({
-        type: 'projectileImpact',
-        position: { ...projectile.position },
-        surface: 'water',
-      });
+      this.pushImpact(projectile, 'water');
       return false;
     }
 
-    // Left the arena: removed silently.
+    // 4. Left the arena: removed silently.
     const { width, height } = this.config.arena;
     const { x, y } = projectile.position;
-    if (x < 0 || x > width || y < 0 || y > height) return false;
+    return x >= 0 && x <= width && y >= 0 && y <= height;
+  }
 
+  /** Player shots hit enemies; enemy shots hit the player. */
+  private tryHitShip(projectile: Projectile): boolean {
+    const hits = (ship: Ship) =>
+      circlesOverlap(projectile.position, projectile.radius, ship.position, ship.radius);
+
+    if (projectile.team === 'player') {
+      const target = this.enemies.find((enemy) => enemy.health > 0 && hits(enemy));
+      if (!target) return false;
+      this.damageEnemyByPlayer(target, projectile.damage);
+      return true;
+    }
+
+    if (!hits(this.player)) return false;
+    this.damagePlayer(projectile.damage);
     return true;
+  }
+
+  private pushImpact(projectile: Projectile, surface: 'island' | 'water' | 'ship'): void {
+    this.events.push({
+      type: 'projectileImpact',
+      position: { ...projectile.position },
+      surface,
+    });
   }
 }
