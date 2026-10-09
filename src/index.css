@@ -1,4 +1,285 @@
-* { box-sizing: border-box; }
-html, body, #root { margin: 0; height: 100%; }
-body { background: #0e3550; overflow: hidden; }
-.game-container { width: 100%; height: 100%; }
+/*
+ * Global styles. The visual identity reuses the challenge's own UI assets
+ * (wooden panel, gold and dark buttons, HUD counters) so menus match the game.
+ */
+
+:root {
+  --color-sea-dark: #0e3550;
+  --color-text-light: #f7ead2;
+  --color-text-dark: #3b2310;
+  --color-gold: #f2b544;
+  --color-focus: #ffe066;
+  font-family: system-ui, 'Segoe UI', Roboto, sans-serif;
+  color: var(--color-text-light);
+  background: var(--color-sea-dark);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  margin: 0;
+  height: 100%;
+}
+
+body {
+  overflow: hidden;
+}
+
+/* Clear, high-contrast focus ring for keyboard users. */
+:focus-visible {
+  outline: 3px solid var(--color-focus);
+  outline-offset: 3px;
+}
+
+/* Visible to screen readers only. */
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* ------------------------------------------------------------ game screen */
+
+.game-screen {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+.game-canvas {
+  position: absolute;
+  inset: 0;
+}
+
+.overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  padding: 16px;
+  background: rgba(14, 53, 80, 0.85);
+  font-size: 1.2rem;
+  text-align: center;
+}
+
+.overlay progress {
+  width: min(320px, 80vw);
+  height: 16px;
+  accent-color: var(--color-gold);
+}
+
+/* -------------------------------------------------------------------- HUD */
+
+.hud {
+  position: absolute;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  pointer-events: none; /* clicks pass through to the game... */
+}
+
+.hud .round-button {
+  pointer-events: auto; /* ...except on the pause button */
+}
+
+.hud-counter {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 128px;
+  height: 45px;
+  padding: 0 14px 0 10px;
+  background: url('/assets/png/default/ui/hud/counter_panel.png') center / 100% 100% no-repeat;
+}
+
+.hud-counter img {
+  width: 28px;
+  height: 28px;
+}
+
+.hud-value {
+  flex: 1;
+  text-align: right;
+  font-size: 1.15rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums; /* digits keep the same width */
+}
+
+.round-button {
+  display: grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: url('/assets/png/default/ui/controls/button_round_normal.png') center / contain no-repeat;
+  cursor: pointer;
+}
+
+.round-button:hover {
+  background-image: url('/assets/png/default/ui/controls/button_round_hover.png');
+}
+
+.round-button:active {
+  background-image: url('/assets/png/default/ui/controls/button_round_pressed.png');
+}
+
+.round-button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.round-button img {
+  width: 24px;
+  height: 24px;
+}
+
+.controls-hint {
+  position: absolute;
+  bottom: 8px;
+  left: 50%;
+  transform: translateX(-50%);
+  margin: 0;
+  padding: 6px 12px;
+  border-radius: 8px;
+  background: rgba(14, 53, 80, 0.8);
+  font-size: 0.85rem;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+kbd {
+  padding: 0 4px;
+  border: 1px solid rgba(247, 234, 210, 0.6);
+  border-radius: 4px;
+  font-family: inherit;
+  font-weight: 700;
+}
+
+/* ---------------------------------------------------------------- dialogs */
+
+.panel-dialog {
+  width: min(384px, calc(100vw - 32px));
+  padding: 40px 36px 36px;
+  border: 0;
+  background: url('/assets/png/default/ui/menu/panel_menu.png') center / 100% 100% no-repeat;
+  color: var(--color-text-light);
+  text-align: center;
+}
+
+.panel-dialog::backdrop {
+  background: rgba(5, 20, 32, 0.6);
+}
+
+.panel-dialog h2 {
+  margin: 0 0 8px;
+  font-size: 1.8rem;
+  color: var(--color-gold);
+}
+
+.dialog-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  margin-top: 20px;
+}
+
+.result-list {
+  display: grid;
+  gap: 8px;
+  margin: 16px 0 0;
+}
+
+.result-list div {
+  display: flex;
+  justify-content: space-between;
+  padding: 6px 12px;
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.25);
+}
+
+.result-list dt {
+  font-weight: 600;
+}
+
+.result-list dd {
+  margin: 0;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ----------------------------------------------------------- menu buttons */
+
+.menu-button {
+  width: 220px;
+  height: 76px;
+  border: 0;
+  background: center / 100% 100% no-repeat;
+  font: inherit;
+  font-size: 1.25rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.menu-button.primary {
+  color: var(--color-text-dark);
+  background-image: url('/assets/png/default/ui/menu/button_primary_normal.png');
+}
+
+.menu-button.primary:hover {
+  background-image: url('/assets/png/default/ui/menu/button_primary_hover.png');
+}
+
+.menu-button.primary:active {
+  background-image: url('/assets/png/default/ui/menu/button_primary_pressed.png');
+}
+
+.menu-button.primary:disabled {
+  background-image: url('/assets/png/default/ui/menu/button_primary_disabled.png');
+  cursor: default;
+}
+
+.menu-button.secondary {
+  color: var(--color-text-light);
+  background-image: url('/assets/png/default/ui/menu/button_secondary_normal.png');
+}
+
+.menu-button.secondary:active {
+  background-image: url('/assets/png/default/ui/menu/button_secondary_pressed.png');
+}
+
+/* Small screens: smaller HUD so nothing is cut off. */
+@media (max-width: 600px) {
+  .hud-counter {
+    width: 92px;
+    height: 36px;
+  }
+  .hud-counter img {
+    width: 20px;
+    height: 20px;
+  }
+  .hud-value {
+    font-size: 0.95rem;
+  }
+  .controls-hint {
+    display: none; /* touch controls will be shown instead */
+  }
+}

@@ -1,77 +1,40 @@
 import { useEffect, useRef } from 'react';
-import { Application } from 'pixi.js';
-import { DEFAULT_GAME_CONFIG } from './config';
-import { KeyboardInput } from './input/KeyboardInput';
-import { GameSimulation } from './simulation/GameSimulation';
-import { GameRenderer } from './render/GameRenderer';
-import { loadGameTextures } from './render/assets';
+import type { GameConfig } from './config';
+import { GameSession } from './session/GameSession';
+import type { MatchStore } from './session/MatchStore';
 
-/**
- * Upper limit for a single frame step, in seconds.
- * Prevents huge jumps when the browser stalls or the tab was hidden.
- */
-const MAX_FRAME_TIME = 0.1;
+interface GameCanvasProps {
+  /** Snapshot of the configuration for this match. */
+  config: GameConfig;
+  /** Where the game publishes score, time and status for the interface. */
+  store: MatchStore;
+}
 
 /**
  * React component that hosts the game.
- * React only provides the <div>; the game loop runs entirely in PixiJS,
- * so React does not re-render on every frame.
+ * React only provides the <div>; the GameSession draws inside it with PixiJS
+ * and runs its own loop, so React does not re-render on every frame.
  */
-export function GameCanvas() {
+export function GameCanvas({ config, store }: GameCanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (!containerRef.current) return;
-    const container: HTMLDivElement = containerRef.current;
+    const container = containerRef.current;
+    if (!container) return;
 
-    const app = new Application();
-    const keyboard = new KeyboardInput();
-
-    // Flags that make setup/cleanup safe under React Strict Mode.
-    let initialized = false;
-    let cancelled = false;
-
-    async function setup() {
-      await app.init({
-        resizeTo: container,
-        background: '#0e3550', // color around the arena when proportions differ
-        antialias: true,
-        resolution: window.devicePixelRatio,
-        autoDensity: true,
+    const session = new GameSession(container, config, store);
+    session.start().catch((error: unknown) => {
+      console.error('Failed to start game', error);
+      store.update({
+        status: 'error',
+        errorMessage: 'The game could not start on this device or browser.',
       });
-      initialized = true;
+    });
 
-      if (cancelled) {
-        app.destroy(true, { children: true });
-        return;
-      }
-      container.appendChild(app.canvas);
+    // Leaving the screen (or restarting) destroys everything the match created.
+    return () => session.destroy();
+  }, [config, store]);
 
-      const textures = await loadGameTextures();
-      if (cancelled) return;
-
-      const config = DEFAULT_GAME_CONFIG;
-      const simulation = new GameSimulation(config);
-      const renderer = new GameRenderer(app, textures, simulation);
-      keyboard.attach();
-
-      // Game loop: input -> rules -> drawing, once per frame.
-      app.ticker.add((ticker) => {
-        const dt = Math.min(ticker.deltaMS / 1000, MAX_FRAME_TIME);
-        simulation.update(dt, keyboard.getState());
-        renderer.render(dt, simulation.drainEvents());
-      });
-    }
-
-    setup().catch((error) => console.error('Failed to start game', error));
-
-    // Cleanup: release listeners, ticker, sprites and canvas.
-    return () => {
-      cancelled = true;
-      keyboard.detach();
-      if (initialized) app.destroy(true, { children: true });
-    };
-  }, []);
-
-  return <div ref={containerRef} className="game-container" />;
+  // Hidden from screen readers: the HUD describes the match in text instead.
+  return <div ref={containerRef} className="game-canvas" aria-hidden="true" />;
 }

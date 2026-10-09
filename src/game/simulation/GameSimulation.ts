@@ -11,6 +11,7 @@ import { angleTo, clamp } from './math';
 import { createVolley } from './projectiles';
 import { findSpawnPosition, pickEnemyKind } from './spawning';
 import type {
+  EndReason,
   EnemyShip,
   GameEvent,
   PlayerInput,
@@ -39,8 +40,10 @@ export class GameSimulation {
   projectiles: Projectile[] = [];
   /** Enemies destroyed by the player's cannons. */
   score = 0;
-  /** True once the player has been destroyed. The simulation stops. */
-  isOver = false;
+  /** Seconds of active play so far (the simulation only advances while running). */
+  elapsed = 0;
+  /** Why the match ended, or null while it is still going. */
+  endReason: EndReason | null = null;
 
   /** Source of randomness. Can be replaced by a seeded one in tests. */
   private readonly random: () => number;
@@ -70,25 +73,45 @@ export class GameSimulation {
     };
   }
 
-  /** Advances the game by `dt` seconds. Called once per frame. */
+  /** True once the match has ended. From then on, update() does nothing. */
+  get isOver(): boolean {
+    return this.endReason !== null;
+  }
+
+  /** Seconds of play left before the timer ends the match. */
+  get timeLeft(): number {
+    return Math.max(0, this.config.matchDuration - this.elapsed);
+  }
+
+  /**
+   * Advances the game by `dt` seconds. Called once per frame.
+   * When the match is over, it stops movement, attacks, damage,
+   * spawns and scoring by simply doing nothing.
+   */
   update(dt: number, input: PlayerInput): void {
     if (this.isOver) return;
 
-    this.updatePlayer(dt, input);
-    this.updatePlayerWeapons(dt, input);
-    this.updateSpawning(dt);
-    this.updateEnemies(dt);
-    this.updateProjectiles(dt);
+    // Never simulate past the end of the match.
+    const step = Math.min(dt, this.timeLeft);
+
+    this.updatePlayer(step, input);
+    this.updatePlayerWeapons(step, input);
+    this.updateSpawning(step);
+    this.updateEnemies(step);
+    this.updateProjectiles(step);
     this.removeDestroyedEnemies();
+    this.elapsed += step;
 
     if (this.player.health <= 0) {
-      this.isOver = true;
+      this.endReason = 'death';
       this.events.push({
         type: 'shipDestroyed',
         kind: 'player',
         position: { ...this.player.position },
         angle: this.player.angle,
       });
+    } else if (this.timeLeft <= 0) {
+      this.endReason = 'time';
     }
   }
 

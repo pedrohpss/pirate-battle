@@ -19,9 +19,14 @@ const HANDLED_KEYS = new Set(Object.values(KEY_BINDINGS).flat());
 /** Tracks which keys are held down and converts them into a PlayerInput. */
 export class KeyboardInput {
   private readonly pressedKeys = new Set<string>();
+  /**
+   * Game keys are only captured while gameplay is active. When disabled
+   * (paused, menus, dialogs), keys keep their normal browser behavior.
+   */
+  private enabled = true;
 
   private readonly onKeyDown = (event: KeyboardEvent) => {
-    if (!HANDLED_KEYS.has(event.code)) return;
+    if (!this.enabled || !HANDLED_KEYS.has(event.code)) return;
     event.preventDefault(); // stop arrows/space from scrolling the page
     this.pressedKeys.add(event.code);
   };
@@ -40,6 +45,14 @@ export class KeyboardInput {
     window.addEventListener('keydown', this.onKeyDown);
     window.addEventListener('keyup', this.onKeyUp);
     window.addEventListener('blur', this.onBlur);
+  }
+
+  setEnabled(enabled: boolean): void {
+    // Only act on a real change: being told "enabled" again while already
+    // enabled must not release the keys the player is holding.
+    if (enabled === this.enabled) return;
+    this.enabled = enabled;
+    this.pressedKeys.clear();
   }
 
   /** Stops listening. Must be called when leaving the game to avoid leaks. */

@@ -34,6 +34,9 @@ export type Team = 'player' | 'enemy';
 
 export type EnemyKind = 'chaser' | 'shooter';
 
+/** Why a match ended: the timer ran out or the player's ship sank. */
+export type EndReason = 'time' | 'death';
+
 /** Every kind of ship, used by the renderer to pick textures. */
 export type ShipKind = 'player' | EnemyKind;
 

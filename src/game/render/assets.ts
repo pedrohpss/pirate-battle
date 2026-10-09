@@ -58,30 +58,54 @@ export type GameTextures = Record<TextureName, Texture> & {
   islandTiles: Map<number, Texture>;
 };
 
-function loadTexture(path: string): Promise<Texture> {
-  return Assets.load<Texture>(path);
-}
-
-/** Loads the 4 damage stages of one ship color. */
-function loadShipStages(color: number): Promise<Texture[]> {
-  const paths = Array.from(
+/** Paths of the 4 damage stages of one ship color. */
+function shipStagePaths(color: number): string[] {
+  return Array.from(
     { length: SHIP_DAMAGE_STAGES },
     (_, stage) => `${PNG_PATH}/ships/ship_${color + stage * 6}.png`,
   );
-  return Promise.all(paths.map(loadTexture));
 }
 
-/** Loads all textures in parallel. Pixi caches them, so reloading is free. */
-export async function loadGameTextures(): Promise<GameTextures> {
+/**
+ * Loads all textures in parallel. Pixi caches them, so reloading is free.
+ * `onProgress` receives a number from 0 to 1 as files finish loading.
+ * Rejects (throws) if any file fails, so the game never starts half-loaded.
+ */
+export async function loadGameTextures(
+  onProgress: (progress: number) => void = () => {},
+): Promise<GameTextures> {
   const namedEntries = Object.entries(TEXTURE_PATHS) as [TextureName, string][];
   const islandTileIds = ISLAND_TILE_GRID.flat();
+  const islandPaths = islandTileIds.map((id) => `${PNG_PATH}/tiles/tile_${id}.png`);
+  const shipPaths = {
+    player: shipStagePaths(SHIP_COLORS.player),
+    chaser: shipStagePaths(SHIP_COLORS.chaser),
+    shooter: shipStagePaths(SHIP_COLORS.shooter),
+  };
+
+  const total =
+    namedEntries.length +
+    islandPaths.length +
+    shipPaths.player.length +
+    shipPaths.chaser.length +
+    shipPaths.shooter.length;
+  let loaded = 0;
+  onProgress(0);
+
+  async function loadTexture(path: string): Promise<Texture> {
+    const texture = await Assets.load<Texture>(path);
+    if (!texture) throw new Error(`Could not load ${path}`);
+    loaded += 1;
+    onProgress(loaded / total);
+    return texture;
+  }
 
   const [namedTextures, islandTextures, player, chaser, shooter] = await Promise.all([
     Promise.all(namedEntries.map(([, path]) => loadTexture(path))),
-    Promise.all(islandTileIds.map((id) => loadTexture(`${PNG_PATH}/tiles/tile_${id}.png`))),
-    loadShipStages(SHIP_COLORS.player),
-    loadShipStages(SHIP_COLORS.chaser),
-    loadShipStages(SHIP_COLORS.shooter),
+    Promise.all(islandPaths.map(loadTexture)),
+    Promise.all(shipPaths.player.map(loadTexture)),
+    Promise.all(shipPaths.chaser.map(loadTexture)),
+    Promise.all(shipPaths.shooter.map(loadTexture)),
   ]);
 
   // Turn the arrays back into "name -> texture" lookups.

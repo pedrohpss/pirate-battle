@@ -61,6 +61,11 @@ export interface ShooterConfig extends ShipConfig {
 }
 
 export interface GameConfig {
+  /**
+   * Length of a match in seconds of active play (pauses do not count).
+   * Allowed range: 60 to 180 (exposed in the Options screen).
+   */
+  matchDuration: number;
   /** Size of the playable area in world units (independent of screen size). */
   arena: { width: number; height: number };
   /** Size of one map tile in world units. */
@@ -101,6 +106,7 @@ export interface GameConfig {
 }
 
 export const DEFAULT_GAME_CONFIG: GameConfig = {
+  matchDuration: 90,
   arena: { width: 1600, height: 900 },
   tileSize: 64,
   islands: [
