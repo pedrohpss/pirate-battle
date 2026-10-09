@@ -5,10 +5,13 @@ import type { PlayerInput } from '../simulation/types';
  * `event.code` is used (not `event.key`) so the layout works
  * the same on any keyboard (ABNT, US, etc.).
  */
-const KEY_BINDINGS: Record<keyof PlayerInput, string[]> = {
+export const KEY_BINDINGS: Record<keyof PlayerInput, string[]> = {
   forward: ['KeyW', 'ArrowUp'],
   turnLeft: ['KeyA', 'ArrowLeft'],
   turnRight: ['KeyD', 'ArrowRight'],
+  fireFront: ['Space'],
+  fireLeft: ['KeyQ'],
+  fireRight: ['KeyE'],
 };
 
 const HANDLED_KEYS = new Set(Object.values(KEY_BINDINGS).flat());
@@ -19,7 +22,7 @@ export class KeyboardInput {
 
   private readonly onKeyDown = (event: KeyboardEvent) => {
     if (!HANDLED_KEYS.has(event.code)) return;
-    event.preventDefault(); // stop arrow keys from scrolling the page
+    event.preventDefault(); // stop arrows/space from scrolling the page
     this.pressedKeys.add(event.code);
   };
 
@@ -53,6 +56,9 @@ export class KeyboardInput {
       forward: this.isAnyPressed(KEY_BINDINGS.forward),
       turnLeft: this.isAnyPressed(KEY_BINDINGS.turnLeft),
       turnRight: this.isAnyPressed(KEY_BINDINGS.turnRight),
+      fireFront: this.isAnyPressed(KEY_BINDINGS.fireFront),
+      fireLeft: this.isAnyPressed(KEY_BINDINGS.fireLeft),
+      fireRight: this.isAnyPressed(KEY_BINDINGS.fireRight),
     };
   }
 

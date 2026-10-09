@@ -2,8 +2,10 @@ import { Container, Graphics, Sprite, TilingSprite } from 'pixi.js';
 import type { Application } from 'pixi.js';
 import type { IslandConfig } from '../config';
 import type { GameSimulation } from '../simulation/GameSimulation';
+import type { GameEvent } from '../simulation/types';
 import { ISLAND_TILE_GRID } from './assets';
 import type { GameTextures } from './assets';
+import { EffectsRenderer } from './EffectsRenderer';
 
 /**
  * The ship images point down, but the simulation uses angle 0 = right.
@@ -28,6 +30,11 @@ export class GameRenderer {
   /** Groups everything inside the arena so it can be scaled as one piece. */
   private readonly world = new Container();
   private readonly playerSprite: Sprite;
+  /** Holds one sprite per flying cannonball. */
+  private readonly projectileLayer = new Container();
+  /** Links each projectile id (simulation) to its sprite (screen). */
+  private readonly projectileSprites = new Map<number, Sprite>();
+  private readonly effects: EffectsRenderer;
   private readonly playerColliderDebug = new Graphics();
   private lastScreenWidth = 0;
   private lastScreenHeight = 0;
@@ -50,23 +57,64 @@ export class GameRenderer {
       this.world.addChild(this.createIsland(island));
     }
 
+    this.world.addChild(this.projectileLayer);
+
     this.playerSprite = new Sprite(textures.playerShip);
     this.playerSprite.anchor.set(0.5); // rotate around the center
     this.world.addChild(this.playerSprite);
+
+    this.effects = new EffectsRenderer(textures);
+    this.world.addChild(this.effects.container);
 
     if (DEBUG_DRAW_COLLIDERS) this.createColliderDebug();
 
     app.stage.addChild(this.world);
   }
 
-  /** Called once per frame, after the simulation update. */
-  render(): void {
+  /**
+   * Called once per frame, after the simulation update.
+   * `dt` animates purely visual effects; `events` are what happened this step.
+   */
+  render(dt: number, events: readonly GameEvent[]): void {
     this.fitToScreen();
 
     const { position, angle } = this.simulation.player;
     this.playerSprite.position.set(position.x, position.y);
     this.playerSprite.rotation = angle + SHIP_SPRITE_ROTATION_OFFSET;
     this.playerColliderDebug.position.set(position.x, position.y);
+
+    this.syncProjectiles();
+    this.effects.handleEvents(events);
+    this.effects.update(dt);
+  }
+
+  /**
+   * Keeps exactly one sprite per projectile:
+   * creates sprites for new projectiles, moves existing ones,
+   * and destroys sprites whose projectile no longer exists.
+   */
+  private syncProjectiles(): void {
+    const aliveIds = new Set<number>();
+
+    for (const projectile of this.simulation.projectiles) {
+      aliveIds.add(projectile.id);
+
+      let sprite = this.projectileSprites.get(projectile.id);
+      if (!sprite) {
+        sprite = new Sprite(this.textures.cannonBall);
+        sprite.anchor.set(0.5);
+        this.projectileLayer.addChild(sprite);
+        this.projectileSprites.set(projectile.id, sprite);
+      }
+      sprite.position.set(projectile.position.x, projectile.position.y);
+    }
+
+    for (const [id, sprite] of this.projectileSprites) {
+      if (!aliveIds.has(id)) {
+        sprite.destroy();
+        this.projectileSprites.delete(id);
+      }
+    }
   }
 
   /**

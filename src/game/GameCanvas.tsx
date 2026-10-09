@@ -52,14 +52,14 @@ export function GameCanvas() {
 
       const config = DEFAULT_GAME_CONFIG;
       const simulation = new GameSimulation(config);
-     const renderer = new GameRenderer(app, textures, simulation);
+      const renderer = new GameRenderer(app, textures, simulation);
       keyboard.attach();
 
       // Game loop: input -> rules -> drawing, once per frame.
       app.ticker.add((ticker) => {
         const dt = Math.min(ticker.deltaMS / 1000, MAX_FRAME_TIME);
         simulation.update(dt, keyboard.getState());
-        renderer.render();
+        renderer.render(dt, simulation.drainEvents());
       });
     }
 

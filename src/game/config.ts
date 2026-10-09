@@ -16,6 +16,24 @@ export interface IslandConfig {
   rows: number;
 }
 
+/** Everything that defines how a cannon (or a group of cannons) shoots. */
+export interface WeaponConfig {
+  /** Minimum time between two shots of this weapon, in seconds. */
+  cooldown: number;
+  /** How many projectiles each shot fires side by side. */
+  projectileCount: number;
+  /** Distance between parallel projectiles, in world units. */
+  spacing: number;
+  /** Distance from the ship center where projectiles appear. */
+  muzzleOffset: number;
+  /** Projectile speed in world units per second. */
+  projectileSpeed: number;
+  /** How far a projectile travels before disappearing, in world units. */
+  projectileRange: number;
+  /** Health removed from the ship that gets hit. */
+  damage: number;
+}
+
 export interface GameConfig {
   /** Size of the playable area in world units (independent of screen size). */
   arena: { width: number; height: number };
@@ -28,6 +46,8 @@ export interface GameConfig {
    * of the full tiles would feel like an invisible wall.
    */
   islandColliderInset: number;
+  /** Collision radius of every cannonball. */
+  projectileRadius: number;
   player: {
     /** Forward speed in world units per second. */
     moveSpeed: number;
@@ -35,6 +55,10 @@ export interface GameConfig {
     turnSpeed: number;
     /** Collision radius, used for arena limits, islands and hits. */
     radius: number;
+    /** Single cannon at the bow. */
+    frontWeapon: WeaponConfig;
+    /** Broadside cannons; left and right each have their own cooldown. */
+    sideWeapon: WeaponConfig;
   };
 }
 
@@ -47,5 +71,28 @@ export const DEFAULT_GAME_CONFIG: GameConfig = {
     { column: 8, row: 9, columns: 3, rows: 3 },
   ],
   islandColliderInset: 10,
-  player: { moveSpeed: 180, turnSpeed: 2.5, radius: 30 },
+  projectileRadius: 5,
+  player: {
+    moveSpeed: 180,
+    turnSpeed: 2.5,
+    radius: 30,
+    frontWeapon: {
+      cooldown: 0.4,
+      projectileCount: 1,
+      spacing: 0,
+      muzzleOffset: 58,
+      projectileSpeed: 480,
+      projectileRange: 520,
+      damage: 25,
+    },
+    sideWeapon: {
+      cooldown: 1,
+      projectileCount: 3,
+      spacing: 24,
+      muzzleOffset: 26,
+      projectileSpeed: 420,
+      projectileRange: 380,
+      damage: 20,
+    },
+  },
 };
