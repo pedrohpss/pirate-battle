@@ -4,6 +4,14 @@ export interface Vector2 {
   y: number;
 }
 
+/** An axis-aligned rectangle in world space (x, y = top-left corner). */
+export interface Rect {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
 /**
  * What the player wants to do this frame.
  * Keyboard and touch controls both produce this same shape,
