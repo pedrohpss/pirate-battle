@@ -2,13 +2,26 @@ import type { Locator } from '@playwright/test';
 import { expect, test } from './fixtures';
 import { advance, getState, openGame, startMatch } from './helpers';
 
-/** Holds a touch button down (pointer events, like a finger). */
-async function pressButton(button: Locator, pointerId: number): Promise<void> {
-  await button.dispatchEvent('pointerdown', { pointerId, pointerType: 'touch', isPrimary: pointerId === 1, button: 0 });
+/**
+ * Puts a finger down on an element (pointer events, like a real touch).
+ * `fx`/`fy` say where, as a fraction of the element's size (0.5 = centre).
+ * The movement pad decides what to do from the finger's position.
+ */
+async function pressButton(target: Locator, pointerId: number, fx = 0.5, fy = 0.5): Promise<void> {
+  const box = await target.boundingBox();
+  if (!box) throw new Error('Element is not visible');
+  await target.dispatchEvent('pointerdown', {
+    pointerId,
+    pointerType: 'touch',
+    isPrimary: pointerId === 1,
+    button: 0,
+    clientX: box.x + box.width * fx,
+    clientY: box.y + box.height * fy,
+  });
 }
 
-async function releaseButton(button: Locator, pointerId: number): Promise<void> {
-  await button.dispatchEvent('pointerup', { pointerId, pointerType: 'touch', isPrimary: pointerId === 1, button: 0 });
+async function releaseButton(target: Locator, pointerId: number): Promise<void> {
+  await target.dispatchEvent('pointerup', { pointerId, pointerType: 'touch', isPrimary: pointerId === 1, button: 0 });
 }
 
 // 9 (touch part). On-screen controls on a phone, landscape.
@@ -45,6 +58,23 @@ test('touch buttons sail, turn and fire, several at once', async ({ page }) => {
   await advance(page, 1);
   await releaseButton(turnRight, 3);
   expect((await getState(page)).player.angle - moved.player.angle).toBeCloseTo(2.5, 3);
+});
+
+test('one finger on an upper corner of the pad sails and turns together', async ({ page }) => {
+  await openGame(page, { noEnemies: true, touch: true });
+  await startMatch(page);
+
+  const pad = page.getByRole('group', { name: 'Movement' });
+  const start = await getState(page);
+
+  // Upper-left corner of the pad: sail forward + turn left with one thumb.
+  await pressButton(pad, 1, 0.15, 0.25);
+  await advance(page, 1);
+  await releaseButton(pad, 1);
+
+  const end = await getState(page);
+  expect(end.player.angle - start.player.angle).toBeCloseTo(-2.5, 3);
+  expect(start.player.y - end.player.y).toBeGreaterThan(30); // it also sailed (along a curve)
 });
 
 test('the pause button works on touch screens', async ({ page }) => {

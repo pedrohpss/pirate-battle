@@ -92,9 +92,13 @@ Keyboard (game keys are only captured while a match is running):
 
 Moving and firing can be combined freely. The game also pauses automatically when the window loses focus or the tab is hidden; resuming always requires the player (Resume button or `Esc`).
 
-**Touch screens** show on-screen buttons during a match: movement on the left (turn left, sail, turn right) and cannons on the right (left broadside, bow, right broadside). Buttons are held, and several fingers work at once, so you can sail and fire together. Pause with the round button at the top. Add `?touch=1` to the URL to show the touch buttons on a desktop.
+**Touch screens** show on-screen controls during a match:
+- **Movement pad (left thumb):** the top row sails forward, the left and right columns turn. Touch an upper corner to sail and turn with one thumb, and slide between zones without lifting it.
+- **Cannons (right thumb):** left broadside, bow cannon and right broadside, held while the finger is down.
 
-**Supported orientation on mobile: landscape.** In portrait the match pauses and asks you to rotate the device; the rules of the match never change with the screen size.
+Several fingers work at once, so you can move and fire together. Dragging on the screen does not select text or open the browser's copy menu. Pause with the round button at the top. Add `?touch=1` to the URL to show the touch buttons on a desktop.
+
+**Supported orientation on mobile: landscape.** The arena is 16:9, so in portrait it would be too small to play. The main menu tells phone players held upright to turn the device; in portrait the match pauses and asks you to rotate. The rules of the match never change with the screen size.
 
 ## Gameplay configuration
 

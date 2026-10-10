@@ -44,6 +44,8 @@ export function MainMenu({
         <p className="muted center">
           Playing as <strong>{player.name}</strong>
         </p>
+        {/* Shown by CSS only on phones held upright. */}
+        <p className="orientation-hint">Turn your phone sideways (landscape) to play.</p>
 
         <div className="dialog-actions">
           <button type="button" className="menu-button primary" onClick={onPlay} autoFocus>

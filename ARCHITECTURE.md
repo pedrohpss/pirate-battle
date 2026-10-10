@@ -58,7 +58,7 @@ One frame (`GameSession.tick`):
 
 ```ts
 const dt = Math.min(ticker.deltaMS / 1000, MAX_FRAME_TIME); // seconds, capped at 0.1
-  if (status === 'running') simulation.update(dt, mergeInputs(keyboard.getState(), touch.getState()));
+if (status === 'running') simulation.update(dt, mergeInputs(keyboard.getState(), touch.getState()));
 renderer.render(status === 'paused' ? 0 : dt, simulation.drainEvents());
 publishSnapshot(); // to the MatchStore
 ```
@@ -110,7 +110,7 @@ publishSnapshot(); // to the MatchStore
 - **Manual pause:** `Esc`, `P` or the HUD button. **Automatic pause:** `window` `blur` and `document` `visibilitychange` (hidden).
 - **Nothing accumulates while paused:** the simulation is not updated (timer, cooldowns, entities frozen); the renderer receives `dt = 0`; the keyboard is disabled and its pressed keys cleared; and the `dt` cap absorbs the first frame after resuming.
 - **Resuming needs the player:** returning to the tab does not resume; only the Resume button or `Esc` in the dialog does.
-- **Touch controls:** `TouchInput` holds which on-screen buttons are pressed and produces the same `PlayerInput` as the keyboard; the session merges both (`mergeInputs`), so the simulation does not know where input came from. Buttons use pointer events with pointer capture (several fingers at once, release even if the finger slides off) and `touch-action: none`. They are shown on coarse pointers (or with `?touch=1`). Pausing disables and clears them like the keyboard.
+- **Touch controls:** `TouchInput` holds which on-screen buttons are pressed and produces the same `PlayerInput` as the keyboard; the session merges both (`mergeInputs`), so the simulation does not know where input came from. Movement is a pad (`TouchControls.tsx`): the finger's position relative to the pad's centre decides the actions (top row sails, outer columns turn), so one thumb can sail and turn at once and slide between zones. Cannons are three held buttons. Both use pointer events with pointer capture (several fingers at once, release even if the finger slides off) and `touch-action: none`; the game screen disables text selection and the touch callout. They are shown on coarse pointers (or with `?touch=1`). Pausing disables and clears them like the keyboard.
 - **Orientation:** landscape is the supported orientation on phones. In portrait the match pauses and an overlay asks the player to rotate; the arena only rescales, rules never change.
 - **Game keys are captured only while running.** `KeyboardInput.setEnabled` follows the store status, so menus and dialogs keep normal keyboard behavior. `setEnabled` is idempotent (it acts only on a real change); an earlier version cleared held keys every time the store notified, which stopped the ship once per second.
 - **End:** death (health 0) or time (elapsed = duration). After that, `update()` returns immediately, which stops movement, attacks, damage, spawns and scoring. Death wins if both happen in the same step.

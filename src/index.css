@@ -54,11 +54,17 @@ body {
   position: relative;
   width: 100%;
   height: 100%;
+  /* A game, not a document: dragging a finger must not select text or open
+     the copy / translate menu of mobile browsers. */
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
 }
 
 .game-canvas {
   position: absolute;
   inset: 0;
+  touch-action: none; /* no scrolling or zooming while playing */
 }
 
 .overlay {
@@ -605,8 +611,41 @@ kbd {
 
 .touch-cluster {
   display: flex;
+  align-items: flex-end;
   gap: 10px;
   pointer-events: auto;
+}
+
+/* Movement pad: 3 × 2 grid. Top row sails, outer columns turn, so the empty
+   upper corners mean "sail and turn". The whole pad catches the finger. */
+.touch-pad {
+  display: grid;
+  grid-template-columns: repeat(3, auto);
+  grid-template-rows: repeat(2, auto);
+  gap: 6px;
+  padding: 6px;
+  border-radius: 24px;
+  background: rgba(14, 53, 80, 0.35);
+  pointer-events: auto;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+}
+
+.pad-forward {
+  grid-column: 2;
+  grid-row: 1;
+}
+
+.pad-left {
+  grid-column: 1;
+  grid-row: 2;
+}
+
+.pad-right {
+  grid-column: 3;
+  grid-row: 2;
 }
 
 .touch-button {
@@ -661,5 +700,18 @@ kbd {
   }
   .hud {
     top: 6px;
+  }
+}
+
+/* Menu hint, only on phones held upright: the game is played in landscape. */
+.orientation-hint {
+  display: none;
+}
+
+@media (orientation: portrait) and (pointer: coarse) {
+  .orientation-hint {
+    display: block;
+    font-weight: 700;
+    text-align: center;
   }
 }
