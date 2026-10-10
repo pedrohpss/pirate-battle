@@ -11,7 +11,7 @@ export async function startMockServer(): Promise<void> {
   applyScenarioFromUrl(window.location.search);
   const worker = setupWorker(...handlers);
   await worker.start({
-    onUnhandledRequest: 'bypass',
+        onUnhandledFrame: 'bypass', // requests without a handler pass through silently
     quiet: true, // keeps the console clean
     serviceWorker: { url: `${import.meta.env.BASE_URL}mockServiceWorker.js` },
   });
