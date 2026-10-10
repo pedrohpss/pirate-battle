@@ -101,6 +101,9 @@ export class GameSession {
 
     this.publishSnapshot();
     this.store.update({ status: 'running' });
+        // The player may have switched tabs or apps while the assets were loading:
+    // the listeners above did not exist yet, so check once now.
+    if (document.hidden) this.store.pause();
 
     if (this.testOptions.enabled) {
       this.exposeTestApi();

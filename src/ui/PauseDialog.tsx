@@ -11,7 +11,8 @@ interface PauseDialogProps {
  * Resuming always needs an explicit action: the button or the Esc key.
  */
 export function PauseDialog({ onResume, onMainMenu }: PauseDialogProps) {
-  const dialogRef = useModalDialog();
+  // If the browser closes the dialog by itself, treat it as "Resume".
+  const dialogRef = useModalDialog(onResume);
 
   return (
     <dialog

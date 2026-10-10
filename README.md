@@ -170,7 +170,7 @@ src/
 ├── game/          Game: PixiJS rendering, simulation and input (no React inside the loop)
 │   ├── simulation/  Rules: movement, collisions, weapons, enemies, spawning (no PixiJS)
 │   ├── render/      PixiJS: arena, ships, projectiles, effects, health bars
-│   ├── input/       Keyboard → player intentions
+│   ├── input/       Keyboard and touch → player intentions
 │   └── session/     Game loop, pause, resource lifecycle, bridge to React
 ├── api/           REST client: contracts, Axios, TanStack Query, pending submissions
 ├── mocks/         MSW handlers, mock database, fixtures, network scenarios

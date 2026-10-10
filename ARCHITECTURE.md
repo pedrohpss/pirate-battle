@@ -58,7 +58,7 @@ One frame (`GameSession.tick`):
 
 ```ts
 const dt = Math.min(ticker.deltaMS / 1000, MAX_FRAME_TIME); // seconds, capped at 0.1
-if (status === 'running') simulation.update(dt, keyboard.getState());
+  if (status === 'running') simulation.update(dt, mergeInputs(keyboard.getState(), touch.getState()));
 renderer.render(status === 'paused' ? 0 : dt, simulation.drainEvents());
 publishSnapshot(); // to the MatchStore
 ```
