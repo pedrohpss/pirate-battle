@@ -7,6 +7,8 @@ const CONTROLS_PATH = '/assets/png/default/ui/controls';
 interface HudProps {
   match: MatchSnapshot;
   onPause: () => void;
+  /** Hidden on touch screens, where the on-screen buttons are shown instead. */
+  showKeyboardHint: boolean;
 }
 
 /**
@@ -14,7 +16,7 @@ interface HudProps {
  * and the controls reminder. It is plain React (semantic HTML), so screen
  * readers can read it, and it only re-renders when a value changes.
  */
-export function Hud({ match, onPause }: HudProps) {
+export function Hud({ match, onPause, showKeyboardHint }: HudProps) {
   return (
     <>
       <section className="hud" aria-label="Match status">
@@ -40,10 +42,12 @@ export function Hud({ match, onPause }: HudProps) {
         </button>
       </section>
 
-      <p className="controls-hint">
-        <kbd>W</kbd>/<kbd>↑</kbd> sail · <kbd>A</kbd> <kbd>D</kbd> turn · <kbd>Space</kbd> bow
-        cannon · <kbd>Q</kbd> <kbd>E</kbd> broadsides · <kbd>Esc</kbd> pause
-      </p>
+      {showKeyboardHint && (
+        <p className="controls-hint">
+          <kbd>W</kbd>/<kbd>↑</kbd> sail · <kbd>A</kbd> <kbd>D</kbd> turn · <kbd>Space</kbd> bow
+          cannon · <kbd>Q</kbd> <kbd>E</kbd> broadsides · <kbd>Esc</kbd> pause
+        </p>
+      )}
 
       {/* Announced to screen readers only when the status changes, never per frame. */}
       <p className="visually-hidden" role="status" aria-live="polite">

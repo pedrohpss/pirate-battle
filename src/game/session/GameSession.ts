@@ -2,6 +2,8 @@ import { Application } from 'pixi.js';
 import type { Ticker } from 'pixi.js';
 import type { GameConfig } from '../config';
 import { KeyboardInput } from '../input/KeyboardInput';
+import { mergeInputs } from '../input/TouchInput';
+import type { TouchInput } from '../input/TouchInput';
 import { loadGameTextures } from '../render/assets';
 import { GameRenderer } from '../render/GameRenderer';
 import { GameSimulation } from '../simulation/GameSimulation';
@@ -27,6 +29,8 @@ export class GameSession {
   private readonly container: HTMLElement;
   private readonly config: GameConfig;
   private readonly store: MatchStore;
+  /** On-screen buttons (mobile). Owned by the React screen, read here. */
+  private readonly touch: TouchInput;
   private readonly app = new Application();
   private readonly keyboard = new KeyboardInput();
   private simulation: GameSimulation | null = null;
@@ -37,10 +41,11 @@ export class GameSession {
   private initialized = false;
   private destroyed = false;
 
-  constructor(container: HTMLElement, config: GameConfig, store: MatchStore) {
+  constructor(container: HTMLElement, config: GameConfig, store: MatchStore, touch: TouchInput) {
     this.container = container;
     this.config = config;
     this.store = store;
+    this.touch = touch;
   }
 
   /** Creates the canvas, loads the assets and starts the game loop. */
@@ -93,6 +98,7 @@ export class GameSession {
   destroy(): void {
     this.destroyed = true;
     this.keyboard.detach();
+    this.touch.releaseAll();
     window.removeEventListener('keydown', this.onKeyDown);
     window.removeEventListener('blur', this.onFocusLost);
     document.removeEventListener('visibilitychange', this.onVisibilityChange);
@@ -112,7 +118,8 @@ export class GameSession {
     // Rules only advance while running: a paused match keeps its timer,
     // cooldowns and positions exactly as they were.
     if (status === 'running') {
-      simulation.update(dt, this.keyboard.getState());
+      // Keyboard and touch buttons can be used together.
+      simulation.update(dt, mergeInputs(this.keyboard.getState(), this.touch.getState()));
     }
 
     // Effects freeze while paused, but keep playing after the match ends
@@ -142,9 +149,11 @@ export class GameSession {
     }
   }
 
-  /** Game keys are captured only while the match is running. */
+  /** Game keys and touch buttons only act while the match is running. */
   private readonly onStatusChange = (): void => {
-    this.keyboard.setEnabled(this.store.getSnapshot().status === 'running');
+    const running = this.store.getSnapshot().status === 'running';
+    this.keyboard.setEnabled(running);
+    this.touch.setEnabled(running);
   };
 
   /** Manual pause with Esc or P. */

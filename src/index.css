@@ -590,3 +590,76 @@ kbd {
   color: var(--color-text-dark);
   font: inherit;
 }
+
+/* --------------------------------------------------------- touch controls */
+
+.touch-controls {
+  position: absolute;
+  inset: auto 0 0 0;
+  display: flex;
+  justify-content: space-between;
+  padding: 12px max(12px, env(safe-area-inset-right)) max(12px, env(safe-area-inset-bottom))
+    max(12px, env(safe-area-inset-left));
+  pointer-events: none; /* only the buttons catch touches, not the empty space */
+}
+
+.touch-cluster {
+  display: flex;
+  gap: 10px;
+  pointer-events: auto;
+}
+
+.touch-button {
+  display: grid;
+  place-items: center;
+  width: 64px;
+  height: 64px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: url('/assets/png/default/ui/controls/button_round_normal.png') center / contain no-repeat;
+  opacity: 0.9;
+  /* No scrolling, zooming, text selection or callout while holding a button. */
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+}
+
+.touch-button.is-pressed {
+  background-image: url('/assets/png/default/ui/controls/button_round_pressed.png');
+}
+
+.touch-button img {
+  width: 32px;
+  height: 32px;
+  pointer-events: none;
+}
+
+.rotate-notice {
+  position: absolute;
+  inset: 0;
+  z-index: 10;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(14, 53, 80, 0.95);
+  font-size: 1.3rem;
+  font-weight: 700;
+  text-align: center;
+}
+
+/* Short landscape screens (phones): smaller buttons so the arena stays visible. */
+@media (max-height: 420px) {
+  .touch-button {
+    width: 54px;
+    height: 54px;
+  }
+  .touch-button img {
+    width: 26px;
+    height: 26px;
+  }
+  .hud {
+    top: 6px;
+  }
+}

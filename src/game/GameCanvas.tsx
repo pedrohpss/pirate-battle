@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 import type { GameConfig } from './config';
+import type { TouchInput } from './input/TouchInput';
 import { GameSession } from './session/GameSession';
 import type { MatchStore } from './session/MatchStore';
 
@@ -8,6 +9,8 @@ interface GameCanvasProps {
   config: GameConfig;
   /** Where the game publishes score, time and status for the interface. */
   store: MatchStore;
+  /** State of the on-screen touch buttons. */
+  touch: TouchInput;
 }
 
 /**
@@ -15,14 +18,14 @@ interface GameCanvasProps {
  * React only provides the <div>; the GameSession draws inside it with PixiJS
  * and runs its own loop, so React does not re-render on every frame.
  */
-export function GameCanvas({ config, store }: GameCanvasProps) {
+export function GameCanvas({ config, store, touch }: GameCanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
 
-    const session = new GameSession(container, config, store);
+    const session = new GameSession(container, config, store, touch);
     session.start().catch((error: unknown) => {
       console.error('Failed to start game', error);
       store.update({
@@ -33,7 +36,7 @@ export function GameCanvas({ config, store }: GameCanvasProps) {
 
     // Leaving the screen (or restarting) destroys everything the match created.
     return () => session.destroy();
-  }, [config, store]);
+  }, [config, store, touch]);
 
   // Hidden from screen readers: the HUD describes the match in text instead.
   return <div ref={containerRef} className="game-canvas" aria-hidden="true" />;

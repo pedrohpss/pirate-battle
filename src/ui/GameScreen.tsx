@@ -2,12 +2,15 @@ import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import type { GameConfig } from '../game/config';
 import { GameCanvas } from '../game/GameCanvas';
 import { useSubmission } from '../api/useMatchSubmission';
+import { TouchInput } from '../game/input/TouchInput';
 import { MatchStore } from '../game/session/MatchStore';
 import type { MatchSummary } from '../settings/lastResult';
 import { optionsFromConfig } from '../settings/options';
 import { Hud } from './Hud';
 import { PauseDialog } from './PauseDialog';
 import { ResultDialog } from './ResultDialog';
+import { TouchControls } from './TouchControls';
+import { useMediaQuery, useTouchControls } from './useMediaQuery';
 
 interface GameScreenProps {
   config: GameConfig;
@@ -40,6 +43,12 @@ export function GameScreen({
 }: GameScreenProps) {
   // One store per match, created once when the screen mounts.
   const [store] = useState(() => new MatchStore());
+  // State of the on-screen buttons, shared by the buttons (write) and the game loop (read).
+  const [touch] = useState(() => new TouchInput());
+  const showTouchControls = useTouchControls();
+  // Supported orientation on phones: landscape. In portrait the match pauses
+  // and asks the player to rotate; the rules of the match do not change.
+  const isPortraitPhone = useMediaQuery('(orientation: portrait) and (pointer: coarse)');
   // Re-renders only when the store says something changed.
   const match = useSyncExternalStore(store.subscribe, store.getSnapshot);
 
@@ -63,12 +72,16 @@ export function GameScreen({
     setMatchId(id);
   }, [match, config, onMatchEnded]);
 
+  useEffect(() => {
+    if (isPortraitPhone) store.pause();
+  }, [isPortraitPhone, match.status, store]);
+
   const inMatch = match.status === 'running' || match.status === 'paused' || match.status === 'ended';
 
   return (
     <main className="game-screen">
       <h1 className="visually-hidden">Pirate Battle</h1>
-      <GameCanvas config={config} store={store} />
+      <GameCanvas config={config} store={store} touch={touch} />
 
       {match.status === 'loading' && (
         <div className="overlay" role="status">
@@ -86,7 +99,17 @@ export function GameScreen({
         </div>
       )}
 
-      {inMatch && <Hud match={match} onPause={() => store.pause()} />}
+      {inMatch && (
+        <Hud match={match} onPause={() => store.pause()} showKeyboardHint={!showTouchControls} />
+      )}
+
+      {match.status === 'running' && showTouchControls && <TouchControls touch={touch} />}
+
+      {isPortraitPhone && (
+        <div className="rotate-notice" role="status">
+          <p>Rotate your device to landscape to play.</p>
+        </div>
+      )}
 
       {match.status === 'paused' && (
         <PauseDialog onResume={() => store.resume()} onMainMenu={onMainMenu} />
