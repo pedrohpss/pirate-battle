@@ -5,6 +5,8 @@ import { isRecord, readStorage, writeStorage } from './storage';
 
 /** Summary of a finished match. */
 export interface MatchResult {
+  /** Same id used to register the match on the server. */
+  matchId: string;
   score: number;
   /** Seconds of active play. */
   timePlayed: number;
@@ -15,13 +17,13 @@ export interface MatchResult {
   options: GameOptions;
 }
 
-const STORAGE_KEY = 'last-result:v1';
+const STORAGE_KEY = 'last-result:v2';
 
 /** The last finished match, or null if there is none (or the data is broken). */
 export function loadLastResult(): MatchResult | null {
   return readStorage(STORAGE_KEY, (value) => {
     if (!isRecord(value)) return null;
-    const { score, timePlayed, endReason, endedAt, options } = value;
+    const { matchId, score, timePlayed, endReason, endedAt, options } = value;
 
     const validNumbers = typeof score === 'number' && typeof timePlayed === 'number';
     const validReason = endReason === 'time' || endReason === 'death';
@@ -33,10 +35,15 @@ export function loadLastResult(): MatchResult | null {
         spawnInterval: Number(options.spawnInterval),
       }).options;
 
-    if (!validNumbers || !validReason || !validDate || !validOptions) return null;
-    return { score, timePlayed, endReason, endedAt, options: validOptions };
+    if (typeof matchId !== 'string' || !validNumbers || !validReason || !validDate || !validOptions) {
+      return null;
+    }
+    return { matchId, score, timePlayed, endReason, endedAt, options: validOptions };
   });
 }
+
+/** What the match screen reports; the App adds the matchId. */
+export type MatchSummary = Omit<MatchResult, 'matchId'>;
 
 /**
  * Saves a finished match. Only completed matches get here:

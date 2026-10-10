@@ -1,12 +1,16 @@
+import type { Submission } from '../api/submissions';
 import type { MatchSnapshot } from '../game/session/MatchStore';
 import { formatTime } from './format';
+import { SubmissionStatus } from './SubmissionStatus';
 import { useModalDialog } from './useModalDialog';
 
 interface ResultDialogProps {
   match: MatchSnapshot;
+  /** Registration of this match in the ranking and history. */
+  submission: Submission | null;
+  onRetrySave: () => void;
   onPlayAgain: () => void;
-  /** Optional until the main menu exists. */
-  onMainMenu?: () => void;
+  onMainMenu: () => void;
 }
 
 const END_REASON_TEXT = {
@@ -15,7 +19,13 @@ const END_REASON_TEXT = {
 } as const;
 
 /** End-of-match summary: score, time played, why it ended and what to do next. */
-export function ResultDialog({ match, onPlayAgain, onMainMenu }: ResultDialogProps) {
+export function ResultDialog({
+  match,
+  submission,
+  onRetrySave,
+  onPlayAgain,
+  onMainMenu,
+}: ResultDialogProps) {
   const dialogRef = useModalDialog();
 
   return (
@@ -40,15 +50,15 @@ export function ResultDialog({ match, onPlayAgain, onMainMenu }: ResultDialogPro
         </div>
       </dl>
 
+      <SubmissionStatus submission={submission} onRetry={onRetrySave} />
+
       <div className="dialog-actions">
         <button type="button" className="menu-button primary" onClick={onPlayAgain} autoFocus>
           Play Again
         </button>
-        {onMainMenu && (
-          <button type="button" className="menu-button secondary" onClick={onMainMenu}>
-            Main Menu
-          </button>
-        )}
+        <button type="button" className="menu-button secondary" onClick={onMainMenu}>
+          Main Menu
+        </button>
       </div>
     </dialog>
   );
