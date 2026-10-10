@@ -40,6 +40,8 @@ export class GameSimulation {
   projectiles: Projectile[] = [];
   /** Enemies destroyed by the player's cannons. */
   score = 0;
+  /** Total projectiles fired by the player (used by tests and stats). */
+  playerProjectilesFired = 0;
   /** Seconds of active play so far (the simulation only advances while running). */
   elapsed = 0;
   /** Why the match ended, or null while it is still going. */
@@ -71,6 +73,11 @@ export class GameSimulation {
       radius: config.player.radius,
       cooldowns: { front: 0, left: 0, right: 0 },
     };
+  }
+
+  /** How many enemies have spawned so far in this match. */
+  get enemiesSpawned(): number {
+    return this.spawnCount;
   }
 
   /** True once the match has ended. From then on, update() does nothing. */
@@ -198,6 +205,7 @@ export class GameSimulation {
     });
 
     this.projectiles.push(...volley.projectiles);
+    if (team === 'player') this.playerProjectilesFired += volley.projectiles.length;
     this.events.push({
       type: 'shotFired',
       team,

@@ -48,6 +48,32 @@ No backend or private service is needed: the ranking and history API is mocked i
 | `npm run preview` | Serves the production build locally |
 | `npm run lint` | Lints the source code |
 | `npm run typecheck` | Type-checks only, without building |
+| `npm run test:e2e` | Runs the Playwright tests (desktop and mobile Chromium) |
+| `npm run test:e2e:update` | Re-creates the visual regression baselines |
+| `npm run test:e2e:report` | Opens the last HTML test report |
+
+## End-to-end tests (Playwright)
+
+First time only: `npx playwright install chromium`.
+
+`npm run test:e2e` builds the game in **test mode** (`vite build --mode test`, which reads `.env.test`: API timeout 4 s, shorter than the default so timeout scenarios run faster, but longer than the slowest normal answer of 3 s), serves it with `vite preview` on port 4173 and runs every spec in `tests/`:
+
+| Spec | Covers |
+| --- | --- |
+| `options.spec.ts` | Navigation, validation and persistence of options |
+| `assets.spec.ts` | Loading progress, asset failure and retry |
+| `movement.spec.ts` | Start state, movement, rotation, arena limits, island collision |
+| `combat.spec.ts` | Bow and broadside shots, cooldowns, projectile removal, scoring without duplication, Chaser ram, Shooter behaviour, spawn interval and both enemy types |
+| `match-flow.spec.ts` | End by time and by death, frozen simulation, clean restart, pause, focus loss, no input accumulation, result persistence, abandoned matches, repeated navigation |
+| `leaderboards.spec.ts` | Ranking pagination, loading, empty and error states, keyboard tabs, registration, pending save after refresh, retry after timeout without duplicates, out-of-order answers |
+| `touch.spec.ts` | Touch buttons (several at once) and pause on a phone |
+| `visual.spec.ts` | Screenshots of the menu, the arena and the result screen |
+
+Projects: **desktop** (Chromium 1280 × 800, all specs) and **mobile** (Pixel 5 landscape, touch, options and visual specs).
+
+**How the tests control the game.** With `?test=1` the game runs in test mode: randomness is seeded (`&seed=N`), enemies can be turned off (`&noEnemies=1`), and the simulation does not advance by itself. Tests advance the clock with `window.__PIRATE_TEST__.advance(seconds)`, which runs the real game loop in fixed 1/60 s steps, and read a copy of the state with `getState()`. Movement and attacks are always driven by real keyboard or pointer events.
+
+Every test runs in a fresh browser context (empty storage) and fails if the page logs an unhandled error. Reports go to `playwright-report/` (HTML, with traces of failed tests); visual baselines are in `tests/visual.spec.ts-snapshots/`.
 
 ## Controls
 

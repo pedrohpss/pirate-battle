@@ -58,6 +58,17 @@ export type GameTextures = Record<TextureName, Texture> & {
   islandTiles: Map<number, Texture>;
 };
 
+/**
+ * How many loads have failed. After a failure, files are requested with a
+ * "?retry=N" suffix: the loader caches failed requests by URL, so a new URL
+ * guarantees that "Try Again" really downloads the files again.
+ */
+let failedAttempts = 0;
+
+function withRetrySuffix(path: string): string {
+  return failedAttempts === 0 ? path : `${path}?retry=${failedAttempts}`;
+}
+
 /** Paths of the 4 damage stages of one ship color. */
 function shipStagePaths(color: number): string[] {
   return Array.from(
@@ -93,20 +104,26 @@ export async function loadGameTextures(
   onProgress(0);
 
   async function loadTexture(path: string): Promise<Texture> {
-    const texture = await Assets.load<Texture>(path);
+    const texture = await Assets.load<Texture>(withRetrySuffix(path));
     if (!texture) throw new Error(`Could not load ${path}`);
     loaded += 1;
     onProgress(loaded / total);
     return texture;
   }
 
-  const [namedTextures, islandTextures, player, chaser, shooter] = await Promise.all([
+  const allLoaded = Promise.all([
     Promise.all(namedEntries.map(([, path]) => loadTexture(path))),
     Promise.all(islandPaths.map(loadTexture)),
     Promise.all(shipPaths.player.map(loadTexture)),
     Promise.all(shipPaths.chaser.map(loadTexture)),
     Promise.all(shipPaths.shooter.map(loadTexture)),
   ]);
+  const [namedTextures, islandTextures, player, chaser, shooter] = await allLoaded.catch(
+    (error: unknown) => {
+      failedAttempts += 1;
+      throw error;
+    },
+  );
 
   // Turn the arrays back into "name -> texture" lookups.
   const named = Object.fromEntries(

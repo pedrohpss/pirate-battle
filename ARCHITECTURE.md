@@ -16,8 +16,9 @@ This document explains how Pirate Battle is organized and why. The short version
 10. [Ranking and match history](#10-ranking-and-match-history)
 11. [Mock API (MSW)](#11-mock-api-msw)
 12. [Accessibility](#12-accessibility)
-13. [Balancing decisions](#13-balancing-decisions)
-14. [Limitations and trade-offs](#limitations-and-trade-offs)
+13. [Testing](#13-testing)
+14. [Balancing decisions](#14-balancing-decisions)
+15. [Limitations and trade-offs](#limitations-and-trade-offs)
 
 ---
 
@@ -195,7 +196,15 @@ The mutation lives in `App`, which is always mounted, so a request completes eve
 - The HUD is semantic HTML (readable by screen readers); the canvas is `aria-hidden`. Status changes (paused, match over, saving) are announced through `role="status"` regions that change only when the status changes, never per frame. Errors use `role="alert"`.
 - Text contrast: dark text on gold buttons, light text on dark panels.
 
-## 13. Balancing decisions
+## 13. Testing
+
+- **Test mode** (`src/game/testing/testMode.ts`), enabled with `?test=1`: seeded randomness (`&seed=`), optional no enemies (`&noEnemies=1`) and a manual clock. Instead of adding the loop to the ticker, the session exposes `window.__PIRATE_TEST__` with `advance(seconds)` (runs the same `step()` as the real loop in fixed 1/60 s steps) and `getState()` (a copied snapshot). The ticker still renders, so screenshots show the real arena.
+- Tests never set positions or health: they press real keys or dispatch pointer events on the touch buttons, advance the clock and assert on the state and on the DOM.
+- A fixture fails any test whose page logs an unhandled error; browser messages about failed requests (expected in failure scenarios) are ignored.
+- The Playwright build uses `--mode test` (`.env.test`, 4 s API timeout) and a separate output folder (`dist-test`), so it never touches the deployed build.
+- Asset retry: a failed texture request is cached by URL in the loader, so after a failure files are requested with a `?retry=N` suffix, which guarantees **Try Again** downloads them again.
+
+## 14. Balancing decisions
 
 A headless bot that always aims at the nearest enemy was run on several seeds. With the first values (player health 100, spawn every 3 s, Shooter damage 15, Chaser damage 25) it survived about 20 s, far too short for 60–180 s matches. After tuning:
 

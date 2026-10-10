@@ -7,6 +7,9 @@ import type { TouchInput } from '../input/TouchInput';
 import { loadGameTextures } from '../render/assets';
 import { GameRenderer } from '../render/GameRenderer';
 import { GameSimulation } from '../simulation/GameSimulation';
+import { createSeededRandom } from '../simulation/math';
+import { readTestOptions } from '../testing/testMode';
+import type { PirateTestApi, TestState } from '../testing/testMode';
 import type { MatchStore } from './MatchStore';
 
 /**
@@ -14,6 +17,9 @@ import type { MatchStore } from './MatchStore';
  * Prevents huge jumps when the browser stalls or the tab was hidden.
  */
 const MAX_FRAME_TIME = 0.1;
+
+/** Fixed step used by test mode (60 steps per second of game time). */
+const TEST_STEP = 1 / 60;
 
 /** Keys that pause the game. */
 const PAUSE_KEYS = new Set(['Escape', 'KeyP']);
@@ -36,6 +42,9 @@ export class GameSession {
   private simulation: GameSimulation | null = null;
   private renderer: GameRenderer | null = null;
   private unsubscribeFromStore: (() => void) | null = null;
+  /** Test mode (?test=1): the clock is advanced by the tests, not by real time. */
+  private readonly testOptions = readTestOptions();
+  private testApi: PirateTestApi | null = null;
 
   // Make start/destroy safe in any order (React Strict Mode mounts twice).
   private initialized = false;
@@ -71,11 +80,12 @@ export class GameSession {
       );
       if (this.destroyed) return;
 
-      this.simulation = new GameSimulation(this.config);
+      this.simulation = this.createSimulation();
       this.renderer = new GameRenderer(this.app, textures, this.simulation);
     } catch (error) {
       if (this.destroyed) return;
-      console.error('Failed to load game assets', error);
+      // Handled: the player sees a message and can try again.
+      console.warn('Failed to load game assets', error);
       this.store.update({
         status: 'error',
         errorMessage: 'Could not load the game assets. Check your connection and try again.',
@@ -91,7 +101,13 @@ export class GameSession {
 
     this.publishSnapshot();
     this.store.update({ status: 'running' });
-    this.app.ticker.add(this.tick);
+
+    if (this.testOptions.enabled) {
+      this.exposeTestApi();
+      this.step(0); // draw the first frame
+    } else {
+      this.app.ticker.add(this.tick);
+    }
   }
 
   /** Releases listeners, ticker, sprites and canvas. Safe to call at any time. */
@@ -103,16 +119,21 @@ export class GameSession {
     window.removeEventListener('blur', this.onFocusLost);
     document.removeEventListener('visibilitychange', this.onVisibilityChange);
     this.unsubscribeFromStore?.();
+    if (this.testApi && window.__PIRATE_TEST__ === this.testApi) delete window.__PIRATE_TEST__;
     if (this.initialized) this.app.destroy(true, { children: true });
   }
 
-  /** The game loop: runs once per frame. */
+  /** The game loop: runs once per frame with the real elapsed time. */
   private readonly tick = (ticker: Ticker): void => {
+    this.step(Math.min(ticker.deltaMS / 1000, MAX_FRAME_TIME));
+  };
+
+  /** One frame of the game: input -> rules -> drawing -> interface. */
+  private step(dt: number): void {
     const simulation = this.simulation;
     const renderer = this.renderer;
     if (!simulation || !renderer) return;
 
-    const dt = Math.min(ticker.deltaMS / 1000, MAX_FRAME_TIME);
     const { status } = this.store.getSnapshot();
 
     // Rules only advance while running: a paused match keeps its timer,
@@ -126,7 +147,67 @@ export class GameSession {
     // (so the final explosion finishes).
     renderer.render(status === 'paused' ? 0 : dt, simulation.drainEvents());
     this.publishSnapshot();
-  };
+  }
+
+  /** Normal play uses Math.random; test mode uses a seed and can turn enemies off. */
+  private createSimulation(): GameSimulation {
+    const { enabled, seed, noEnemies } = this.testOptions;
+    if (!enabled) return new GameSimulation(this.config);
+
+    const config = noEnemies
+      ? { ...this.config, spawn: { ...this.config.spawn, firstSpawnDelay: Infinity } }
+      : this.config;
+    return new GameSimulation(config, createSeededRandom(seed));
+  }
+
+  /** Lets tests advance the clock and observe the state (test mode only). */
+  private exposeTestApi(): void {
+    this.testApi = {
+      advance: (seconds) => {
+        const steps = Math.round(seconds / TEST_STEP);
+        for (let i = 0; i < steps; i++) this.step(TEST_STEP);
+      },
+      getState: () => this.readTestState(),
+    };
+    window.__PIRATE_TEST__ = this.testApi;
+  }
+
+  private readTestState(): TestState {
+    const simulation = this.simulation;
+    if (!simulation) throw new Error('The match has not started.');
+    const { player } = simulation;
+    return {
+      status: this.store.getSnapshot().status,
+      score: simulation.score,
+      elapsed: simulation.elapsed,
+      timeLeft: simulation.timeLeft,
+      endReason: simulation.endReason,
+      player: {
+        x: player.position.x,
+        y: player.position.y,
+        angle: player.angle,
+        health: player.health,
+        maxHealth: player.maxHealth,
+        radius: player.radius,
+      },
+      enemies: simulation.enemies.map((enemy) => ({
+        id: enemy.id,
+        kind: enemy.kind,
+        x: enemy.position.x,
+        y: enemy.position.y,
+        health: enemy.health,
+        radius: enemy.radius,
+      })),
+      projectiles: simulation.projectiles.map((projectile) => ({
+        team: projectile.team,
+        x: projectile.position.x,
+        y: projectile.position.y,
+      })),
+      playerProjectilesFired: simulation.playerProjectilesFired,
+      enemiesSpawned: simulation.enemiesSpawned,
+      obstacles: simulation.obstacles.map((rect) => ({ ...rect })),
+    };
+  }
 
   /** Sends the values the interface needs to the store. */
   private publishSnapshot(): void {

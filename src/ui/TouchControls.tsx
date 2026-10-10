@@ -52,10 +52,15 @@ function HoldButton({ spec, touch }: { spec: ButtonSpec; touch: TouchInput }) {
 
   function press(event: PointerEvent<HTMLButtonElement>) {
     event.preventDefault();
-    // Keep receiving this finger's events even if it slides off the button.
-    event.currentTarget.setPointerCapture(event.pointerId);
     touch.press(spec.action);
     setIsPressed(true);
+    // Keep receiving this finger's events even if it slides off the button.
+    // (Can fail for synthetic events, e.g. in automated tests: not a problem.)
+    try {
+      event.currentTarget.setPointerCapture(event.pointerId);
+    } catch {
+      // ignore
+    }
   }
 
   function release() {
