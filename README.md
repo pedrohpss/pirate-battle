@@ -51,6 +51,7 @@ No backend or private service is needed: the ranking and history API is mocked i
 | `npm run test:e2e` | Runs the Playwright tests (desktop and mobile Chromium) |
 | `npm run test:e2e:update` | Re-creates the visual regression baselines |
 | `npm run test:e2e:report` | Opens the last HTML test report |
+| `npm run perf` | Profiles a 3-minute match and 5 play/leave cycles (see [PERFORMANCE.md](./PERFORMANCE.md)) |
 
 ## End-to-end tests (Playwright)
 

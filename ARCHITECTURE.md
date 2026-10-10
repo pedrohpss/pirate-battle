@@ -202,6 +202,7 @@ The mutation lives in `App`, which is always mounted, so a request completes eve
 - Tests never set positions or health: they press real keys or dispatch pointer events on the touch buttons, advance the clock and assert on the state and on the DOM.
 - A fixture fails any test whose page logs an unhandled error; browser messages about failed requests (expected in failure scenarios) are ignored.
 - The Playwright build uses `--mode test` (`.env.test`, 4 s API timeout) and a separate output folder (`dist-test`), so it never touches the deployed build.
+- **Profiling mode** (`?perf=1`): the normal real-time loop, a seeded match and an unsinkable ship, so a match lasts its full duration; the state can be read (for entity counts) but the clock cannot be advanced. `npm run perf` uses it on the production build in a visible browser (real GPU). Results: [PERFORMANCE.md](./PERFORMANCE.md).
 - Asset retry: a failed texture request is cached by URL in the loader, so after a failure files are requested with a `?retry=N` suffix, which guarantees **Try Again** downloads them again.
 
 ## 14. Balancing decisions

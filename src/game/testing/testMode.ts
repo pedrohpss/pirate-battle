@@ -4,7 +4,11 @@ import type { MatchStatus } from '../session/MatchStore';
 /**
  * Test mode, used by the Playwright tests (never active in normal play).
  *
- * Enabled with `?test=1` in the URL:
+ * Enabled with `?test=1` in the URL (manual clock), or `?perf=1` (profiling:
+ * real-time loop, the player cannot sink so a match lasts its full duration,
+ * and the state can be read but the clock cannot be advanced).
+ *
+ * Options:
  * - `seed=<number>`: seeded randomness, so enemies spawn in the same places every run;
  * - `noEnemies=1`: no enemy spawns (isolates movement, collision and weapon tests).
  *
@@ -14,7 +18,10 @@ import type { MatchStatus } from '../session/MatchStore';
  * and rendering). Tests can also read a snapshot of the state. Nothing else.
  */
 export interface TestOptions {
+  /** Manual clock (`?test=1`). */
   enabled: boolean;
+  /** Profiling mode (`?perf=1`). */
+  perf: boolean;
   seed: number;
   noEnemies: boolean;
 }
@@ -24,6 +31,7 @@ export function readTestOptions(search: string = window.location.search): TestOp
   const seed = Number(params.get('seed'));
   return {
     enabled: params.get('test') === '1',
+    perf: params.get('perf') === '1',
     seed: Number.isInteger(seed) && seed !== 0 ? seed : 1,
     noEnemies: params.get('noEnemies') === '1',
   };
@@ -47,7 +55,7 @@ export interface TestState {
 }
 
 export interface PirateTestApi {
-  /** Runs the game loop for `seconds` of game time, in fixed 1/60 s steps. */
+  /** Runs the game loop for `seconds` of game time, in fixed 1/60 s steps (test mode only). */
   advance(seconds: number): void;
   getState(): TestState;
 }

@@ -106,6 +106,7 @@ export class GameSession {
       this.exposeTestApi();
       this.step(0); // draw the first frame
     } else {
+      if (this.testOptions.perf) this.exposeTestApi();
       this.app.ticker.add(this.tick);
     }
   }
@@ -149,9 +150,17 @@ export class GameSession {
     this.publishSnapshot();
   }
 
-  /** Normal play uses Math.random; test mode uses a seed and can turn enemies off. */
+  /**
+   * Normal play uses Math.random. Test mode uses a seed and can turn enemies off.
+   * Profiling mode uses a seed and a ship that cannot sink, so the match runs
+   * its full duration with the maximum number of enemies.
+   */
   private createSimulation(): GameSimulation {
-    const { enabled, seed, noEnemies } = this.testOptions;
+    const { enabled, perf, seed, noEnemies } = this.testOptions;
+    if (perf) {
+      const config = { ...this.config, player: { ...this.config.player, maxHealth: 1e9 } };
+      return new GameSimulation(config, createSeededRandom(seed));
+    }
     if (!enabled) return new GameSimulation(this.config);
 
     const config = noEnemies
@@ -164,6 +173,7 @@ export class GameSession {
   private exposeTestApi(): void {
     this.testApi = {
       advance: (seconds) => {
+        if (!this.testOptions.enabled) throw new Error('advance() needs ?test=1 (manual clock).');
         const steps = Math.round(seconds / TEST_STEP);
         for (let i = 0; i < steps; i++) this.step(TEST_STEP);
       },
