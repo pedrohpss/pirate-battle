@@ -9,7 +9,7 @@ import {
 } from './collision';
 import { decideEnemyAction } from './enemyAI';
 import { getIslandCollider } from './islands';
-import { angleTo, clamp, distance } from './math';
+import { angleDifference, angleTo, clamp, distance } from './math';
 import { createVolley } from './projectiles';
 import { findSpawnPosition, pickEnemyKind } from './spawning';
 import type {
@@ -274,12 +274,14 @@ export class GameSimulation {
     // 1. Think and move.
     const decisions = alive.map((enemy) => {
       // If an island hides the player, sail around it instead of pushing
-      // against it (and a Shooter holds its fire: it cannot see the player).
+      // against it. The firing rule does not change: a Shooter still fires
+      // whenever the player is within attack range and its bow points at the
+      // player (while it turns toward the corner, it usually does not).
       const detour = this.detourAroundIslands(enemy);
       const decision = decideEnemyAction(enemy, detour ?? this.player.position, this.config, dt);
       if (detour) {
         decision.moveForward = true;
-        decision.wantsToFire = false;
+        decision.wantsToFire = enemy.kind === 'shooter' && this.shooterCanFireAtPlayer(enemy);
       }
       const stats = enemy.kind === 'chaser' ? this.config.chaser : this.config.shooter;
       if (decision.moveForward) this.moveForward(enemy, stats.moveSpeed, dt);
@@ -384,6 +386,13 @@ export class GameSimulation {
     }
     // No usable corner (very rare): head straight for the player.
     return best;
+  }
+
+  /** The Shooter's normal firing rule: player within attack range and bow aimed at it. */
+  private shooterCanFireAtPlayer(shooter: EnemyShip): boolean {
+    const { attackRange, aimTolerance } = this.config.shooter;
+    const aimError = Math.abs(angleDifference(shooter.angle, angleTo(shooter.position, this.player.position)));
+    return distance(shooter.position, this.player.position) <= attackRange && aimError <= aimTolerance;
   }
 
   /** A Chaser touching the player damages it and explodes (no points). */

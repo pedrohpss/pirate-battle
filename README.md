@@ -191,7 +191,7 @@ public/
 ## Known limitations
 
 - Ships use circular hitboxes, so the bow can overlap the sand slightly at some angles.
-- Enemies steer around the island that blocks their view of the player (they aim for its most useful corner), and a Shooter holds its fire while an island hides the player. This is simple steering, not full path-finding: with several islands in a row an enemy may take a longer route.
+- Enemies steer around the island that blocks their view of the player (they aim for its most useful corner). This is simple steering, not full path-finding: with several islands in a row an enemy may take a longer route.
 - Ships bump with simple positional separation (no momentum or bounce); a Chaser touching the player always rams and explodes, as the rules require.
 - The Shooter does not check line of sight; its shots simply hit the island in between.
 
@@ -199,4 +199,4 @@ See [ARCHITECTURE.md](./ARCHITECTURE.md#limitations-and-trade-offs) for the reas
 
 ## Assets and licenses
 
-All images and sounds in `public/assets/` are the assets provided by the challenge (sounds are played with the Web Audio API: shots, impacts, explosions, points, start, pause, end, time and low-health warnings and the ocean ambience) ([junglegaming/game-developer-challenge](https://github.com/junglegaming/game-developer-challenge)). No external assets were added. Ship damage states, health bars, menu panels and buttons use these files directly; health bar measurements come from `assets/spritesheet/ui_sheet.json`.
+All images and sounds in `public/assets/` are the assets provided by the challenge (sounds are played with the Web Audio API: shots, impacts, explosions, points, start, pause, end, time and low-health warnings and the ocean ambience) ([junglegaming/game-developer-challenge](https://github.com/junglegaming/game-developer-challenge)). No external assets were added. Two small complementary resources were made for this project: the speaker icon of the sound button (an SVG drawn in `src/ui/Hud.tsx`) and the page icon (`public/favicon.png`, `public/apple-touch-icon.png`), generated from the challenge's own player ship sprite. Ship damage states, health bars, menu panels and buttons use these files directly; health bar measurements come from `assets/spritesheet/ui_sheet.json`.
