@@ -73,9 +73,47 @@ export function pushCircleOutOfRect(center: Vector2, radius: number, rect: Rect)
   else center.y = rect.y + rect.height + radius;
 }
 
+/** A copy of `rect` grown by `amount` on every side. */
+export function inflateRect(rect: Rect, amount: number): Rect {
+  return {
+    x: rect.x - amount,
+    y: rect.y - amount,
+    width: rect.width + amount * 2,
+    height: rect.height + amount * 2,
+  };
+}
+
+/**
+ * True when the straight line from `a` to `b` passes through `rect`.
+ * Used as a cheap "line of sight" test (Liang–Barsky clipping): the segment
+ * is clipped against each side; if nothing is left, it misses the rectangle.
+ */
+export function segmentIntersectsRect(a: Vector2, b: Vector2, rect: Rect): boolean {
+  const dx = b.x - a.x;
+  const dy = b.y - a.y;
+  // For each side: p = direction of travel across it, q = distance to it.
+  const p = [-dx, dx, -dy, dy];
+  const q = [a.x - rect.x, rect.x + rect.width - a.x, a.y - rect.y, rect.y + rect.height - a.y];
+  let enter = 0;
+  let exit = 1;
+
+  for (let i = 0; i < 4; i++) {
+    if (p[i] === 0) {
+      if (q[i] < 0) return false; // parallel to this side and outside it
+      continue;
+    }
+    const t = q[i] / p[i];
+    if (p[i] < 0) enter = Math.max(enter, t);
+    else exit = Math.min(exit, t);
+    if (enter > exit) return false;
+  }
+  return true;
+}
+
 /**
  * If two circles overlap, pushes both apart by half the overlap each.
- * Used so enemy ships do not stack on top of each other.
+ * Used so ships bump into each other instead of stacking (enemy with enemy,
+ * player with Shooter).
  */
 export function separateCircles(
   centerA: Vector2,

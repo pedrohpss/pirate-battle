@@ -42,7 +42,7 @@ Keyboard ──► KeyboardInput ──► PlayerInput ──► GameSimulation 
 | Interface | `src/ui` | React, the `MatchStore` snapshot | The game loop |
 | Data | `src/api`, `src/mocks` | REST contracts, cache | The game |
 
-Because the simulation imports nothing from PixiJS or the DOM, it can run headless. During development it was run in Node with a seeded random generator to verify spawning distances, collisions, end conditions and determinism, and to balance the game.
+Because the simulation imports nothing from PixiJS or the DOM, it can run headless. During development it was run in Node with a seeded random generator, through throwaway scripts that are not kept in the repository, to verify spawning distances, collisions, end conditions and determinism, and to balance the game. The Playwright tests now cover the same rules in the browser.
 
 ## 2. React and PixiJS integration
 
@@ -75,7 +75,7 @@ publishSnapshot(); // to the MatchStore
 - **Island colliders** are the island's tiles shrunk by `islandColliderInset` (10 u) on each side, because the sand tiles have rounded, transparent edges.
 - **Ship vs island** (`pushCircleOutOfRect`): find the closest point of the rectangle to the circle center; if it is closer than the radius, push the ship away from that point by the overlap. Pushing along that direction makes ships slide along the coast instead of sticking. If the center is inside the rectangle, the ship is pushed out through the nearest side.
 - **Arena limits:** positions are clamped so the whole hitbox stays inside the arena.
-- **Ship vs ship:** enemies that overlap are pushed apart by half the overlap each, so a group of Chasers does not collapse into one point.
+- **Ship vs ship:** ships are solid. Enemies that overlap are pushed apart by half the overlap each (two passes per frame, so a group of Chasers does not collapse into one point), and the player and a Shooter bump the same way instead of sailing through each other. A Chaser that touches the player is not pushed: it rams and explodes, as the rules require. After a push, both ships are checked against islands and the arena again. This is simple positional separation, not a full physics engine (no momentum or bounce), which is enough for slow ships and keeps the rules deterministic.
 - **Projectile vs island / ship:** circle-rectangle and circle-circle overlap tests. Projectiles only hit the opposite team.
 - Distances are compared squared where possible (`dx² + dy² < r²`) to avoid square roots.
 
@@ -119,6 +119,7 @@ publishSnapshot(); // to the MatchStore
 
 - **World container:** everything in the arena lives in one `Container` sized in world units (1600 × 900). `fitToScreen` scales it with the smaller of the two ratios and centers it, so the arena is never distorted or cut, and game rules never depend on screen size. The canvas uses `resizeTo`, `resolution: devicePixelRatio` and `autoDensity` for sharp rendering on high-density screens.
 - **Layers (bottom to top):** water → islands → sinking wrecks → projectiles → ships → explosions → health bars.
+- **Island decorations:** each island gets a palm tree, a bush, a rock and grass tufts from the challenge tiles, placed at fixed fractions of its size (mirrored on every other island). They are purely visual: the collider does not change, and nothing is random, so the arena looks the same in every match and in the visual tests.
 - **Entity sync:** the renderer keeps `Map<id, view>` for enemies and projectiles. Each frame it creates views for new ids, updates existing ones and destroys views whose id disappeared, so sprites never leak.
 - **Ship deterioration:** the asset pack has four images per ship colour (intact, damaged, badly damaged, wrecked). `getDamageStage` picks one from the health ratio.
 - **Health bars** follow the asset metadata in `ui_sheet.json`: frame first, fill on top, clipped from the left with a mask whose width is the health ratio. The mask is redrawn only when the ratio changes.
@@ -218,7 +219,7 @@ The mutation lives in `App`, which is always mounted, so a request completes eve
 
 ## 14. Balancing decisions
 
-A headless bot that always aims at the nearest enemy was run on several seeds. With the first values (player health 100, spawn every 3 s, Shooter damage 15, Chaser damage 25) it survived about 20 s, far too short for 60–180 s matches. After tuning:
+A throwaway headless bot (not kept in the repository) that always aims at the nearest enemy was run on several seeds. With the first values (player health 100, spawn every 3 s, Shooter damage 15, Chaser damage 25) it survived about 20 s, far too short for 60–180 s matches. After tuning:
 
 | Value | Before | After |
 | --- | --- | --- |
@@ -232,7 +233,7 @@ The same bot then survived 48–105 s (scores 5–15). A human who dodges and us
 ## Limitations and trade-offs
 
 - **Circular hitboxes:** ships are long (66 × 113 px) but collide as circles (radius 30). Simple and rotation-independent; the bow can overlap sand slightly.
-- **No path-finding:** enemies steer straight at the player and slide along coasts; they can be stuck behind an island for a while, which also lets islands act as cover.
+- **Simple steering instead of path-finding:** if an island blocks the straight line to the player (a segment-vs-rectangle test, `segmentIntersectsRect`), a Chaser heads for the corner of that island, just outside it, that gives the shortest trip to the player and is visible from where it is. After rounding the corner it sees the player and attacks directly. Measured headlessly with the player hiding behind each island, Chasers that used to stay pressed against the coast now reach the player in about 4 s. Shooters keep the straight-line behaviour (they stop at a distance), so islands still work as cover against their shots.
 - **No line-of-sight check** for the Shooter.
 - **No sprite pooling:** projectile and effect sprites are created and destroyed. Counts stay low (at most 10 enemies), so this was not a bottleneck.
 - **Navigation** uses component state instead of a router (three screens, no URLs required). A router such as TanStack Router would map them to `/`, `/options` and `/play`.

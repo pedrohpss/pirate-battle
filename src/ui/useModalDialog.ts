@@ -31,7 +31,12 @@ export function useModalDialog(onDismiss?: () => void) {
     let closingOnUnmount = false;
 
     const handleClose = () => {
-      if (closingOnUnmount || !dialog.isConnected) return;
+      // The browser fires "close" a moment after close() is called. In React
+      // Strict Mode (development) the effect runs twice: the first cleanup
+      // closes the dialog and the second run opens it again, so that late
+      // "close" event arrives while the dialog is already open. Ignore it,
+      // otherwise the pause dialog would resume the match by itself.
+      if (closingOnUnmount || !dialog.isConnected || dialog.open) return;
       if (onDismissRef.current) onDismissRef.current();
       else dialog.showModal();
     };

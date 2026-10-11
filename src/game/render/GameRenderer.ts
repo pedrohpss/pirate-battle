@@ -3,7 +3,7 @@ import type { Application } from 'pixi.js';
 import type { IslandConfig } from '../config';
 import type { GameSimulation } from '../simulation/GameSimulation';
 import type { GameEvent, Ship, ShipKind } from '../simulation/types';
-import { ISLAND_TILE_GRID } from './assets';
+import { ISLAND_DECORATION_TILES, ISLAND_TILE_GRID } from './assets';
 import type { GameTextures } from './assets';
 import { EffectsRenderer } from './EffectsRenderer';
 import { HealthBar } from './HealthBar';
@@ -88,9 +88,9 @@ export class GameRenderer {
     this.world.addChild(
       new TilingSprite({ texture: textures.water, width: arena.width, height: arena.height }),
     );
-    for (const island of simulation.config.islands) {
-      this.world.addChild(this.createIsland(island));
-    }
+    simulation.config.islands.forEach((island, index) => {
+      this.world.addChild(this.createIsland(island, index));
+    });
     this.effects = new EffectsRenderer(textures);
     this.world.addChild(
       this.effects.underShips,
@@ -202,7 +202,7 @@ export class GameRenderer {
    * Builds an island out of sand tiles: corners on the corners,
    * edges along the borders and the center tile filling the inside.
    */
-  private createIsland(island: IslandConfig): Container {
+  private createIsland(island: IslandConfig, islandIndex: number): Container {
     const { tileSize } = this.simulation.config;
     const container = new Container();
     container.position.set(island.column * tileSize, island.row * tileSize);
@@ -219,7 +219,44 @@ export class GameRenderer {
         container.addChild(tile);
       }
     }
+
+    this.decorateIsland(container, island, islandIndex);
     return container;
+  }
+
+  /**
+   * Adds a palm tree, a bush, a rock and grass tufts on the sand.
+   * Positions are fractions of the island size, so they fit islands of any
+   * size. Every other island is mirrored so they do not all look the same.
+   * No randomness: the arena looks identical in every match (and in the
+   * visual tests).
+   */
+  private decorateIsland(container: Container, island: IslandConfig, islandIndex: number): void {
+    const { tileSize } = this.simulation.config;
+    const width = island.columns * tileSize;
+    const height = island.rows * tileSize;
+    const mirrored = islandIndex % 2 === 1;
+    const tiles = ISLAND_DECORATION_TILES;
+
+    // x, y = fraction of the island (0 = left/top, 1 = right/bottom).
+    const decorations = [
+      { tile: tiles.tuftsA, x: 0.28, y: 0.3, scale: 0.9, rotation: 0 },
+      { tile: tiles.tuftsB, x: 0.7, y: 0.72, scale: 0.9, rotation: 1.2 },
+      { tile: islandIndex === 2 ? tiles.mossyRock : tiles.rock, x: 0.7, y: 0.32, scale: 0.55, rotation: 0 },
+      { tile: islandIndex === 1 ? tiles.leaves : tiles.bush, x: 0.32, y: 0.68, scale: 0.75, rotation: 0.4 },
+      // The palm last, so its leaves are drawn over everything else.
+      { tile: tiles.palm, x: 0.52, y: 0.48, scale: 1.4, rotation: islandIndex * 0.9 },
+    ];
+
+    for (const decoration of decorations) {
+      const sprite = new Sprite(this.textures.islandTiles.get(decoration.tile));
+      sprite.anchor.set(0.5);
+      const x = mirrored ? 1 - decoration.x : decoration.x;
+      sprite.position.set(x * width, decoration.y * height);
+      sprite.scale.set(decoration.scale);
+      sprite.rotation = decoration.rotation;
+      container.addChild(sprite);
+    }
   }
 
   /** Draws every hitbox as a red outline (debug only). */

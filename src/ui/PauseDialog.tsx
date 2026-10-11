@@ -2,7 +2,7 @@ import { useModalDialog } from './useModalDialog';
 
 interface PauseDialogProps {
   onResume: () => void;
-  /** Optional until the main menu exists. */
+  /** Leaves the match (it is abandoned, not saved). Optional so the dialog can be reused without it. */
   onMainMenu?: () => void;
 }
 

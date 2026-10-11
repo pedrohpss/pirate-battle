@@ -76,6 +76,8 @@ Projects: **desktop** (Chromium 1280 × 800, all specs) and **mobile** (Pixel 5 
 
 Every test runs in a fresh browser context (empty storage) and fails if the page logs an unhandled error. Reports go to `playwright-report/` (HTML, with traces of failed tests); visual baselines are in `tests/visual.spec.ts-snapshots/`.
 
+**Visual baselines and operating systems.** The committed screenshots were generated on Windows (`*-win32.png`); fonts render slightly differently on each system, so Playwright keeps one set per platform. On Linux or macOS, create that platform's baselines once with `npm run test:e2e:update`, then run `npm run test:e2e` as usual.
+
 ## Controls
 
 Keyboard (game keys are only captured while a match is running):
@@ -189,7 +191,8 @@ public/
 ## Known limitations
 
 - Ships use circular hitboxes, so the bow can overlap the sand slightly at some angles.
-- Enemies do not path-find around islands: they slide along the coast and can get stuck behind an island for a while.
+- Chasers steer around the island that blocks their way (they aim for its nearest useful corner), but this is simple steering, not full path-finding. Shooters still hold their distance in a straight line, so their shots can hit an island in between.
+- Ships bump with simple positional separation (no momentum or bounce); a Chaser touching the player always rams and explodes, as the rules require.
 - The Shooter does not check line of sight; its shots simply hit the island in between.
 
 See [ARCHITECTURE.md](./ARCHITECTURE.md#limitations-and-trade-offs) for the reasoning behind these trade-offs.

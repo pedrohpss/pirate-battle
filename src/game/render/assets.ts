@@ -50,6 +50,21 @@ export const ISLAND_TILE_GRID = [
   [33, 34, 35], // bottom-left, bottom, bottom-right
 ] as const;
 
+/**
+ * Decorations drawn on top of the sand (tile numbers): a palm tree seen from
+ * above, bushes, rocks and grass tufts. Purely visual: the island collider
+ * does not change.
+ */
+export const ISLAND_DECORATION_TILES = {
+  palm: 71,
+  bush: 72,
+  leaves: 70,
+  rock: 50,
+  mossyRock: 66,
+  tuftsA: 87,
+  tuftsB: 88,
+} as const;
+
 /** Every texture the game needs, already loaded. */
 export type GameTextures = Record<TextureName, Texture> & {
   /** For each ship kind, its 4 damage stages (index 0 = intact, 3 = wrecked). */
@@ -86,7 +101,7 @@ export async function loadGameTextures(
   onProgress: (progress: number) => void = () => {},
 ): Promise<GameTextures> {
   const namedEntries = Object.entries(TEXTURE_PATHS) as [TextureName, string][];
-  const islandTileIds = ISLAND_TILE_GRID.flat();
+  const islandTileIds = [...ISLAND_TILE_GRID.flat(), ...Object.values(ISLAND_DECORATION_TILES)];
   const islandPaths = islandTileIds.map((id) => `${PNG_PATH}/tiles/tile_${id}.png`);
   const shipPaths = {
     player: shipStagePaths(SHIP_COLORS.player),

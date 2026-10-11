@@ -2,12 +2,14 @@ import type { GameConfig, WeaponConfig } from '../config';
 import {
   circleIntersectsRect,
   circlesOverlap,
+  inflateRect,
   pushCircleOutOfRect,
+  segmentIntersectsRect,
   separateCircles,
 } from './collision';
 import { decideEnemyAction } from './enemyAI';
 import { getIslandCollider } from './islands';
-import { angleTo, clamp } from './math';
+import { angleTo, clamp, distance } from './math';
 import { createVolley } from './projectiles';
 import { findSpawnPosition, pickEnemyKind } from './spawning';
 import type {
@@ -20,10 +22,24 @@ import type {
   Rect,
   Ship,
   Team,
+  Vector2,
   WeaponSlot,
 } from './types';
 
 const WEAPON_SLOTS: WeaponSlot[] = ['front', 'left', 'right'];
+
+/** How far outside an island's corner a Chaser aims when sailing around it. */
+const CHASER_CORNER_MARGIN = 12;
+
+/** A corner closer than this counts as reached, and the next one is chosen. */
+const CHASER_CORNER_REACHED = 15;
+
+/** Shortest distance from a point to a rectangle (0 if inside). */
+function distanceToRect(point: Vector2, rect: Rect): number {
+  const dx = Math.max(rect.x - point.x, 0, point.x - (rect.x + rect.width));
+  const dy = Math.max(rect.y - point.y, 0, point.y - (rect.y + rect.height));
+  return Math.hypot(dx, dy);
+}
 
 /**
  * Holds the game state and applies the game rules.
@@ -257,18 +273,23 @@ export class GameSimulation {
 
     // 1. Think and move.
     const decisions = alive.map((enemy) => {
-      const decision = decideEnemyAction(enemy, this.player.position, this.config, dt);
+      // Chasers sail around islands instead of pushing against them.
+      const target = enemy.kind === 'chaser' ? this.chaserTarget(enemy) : this.player.position;
+      const decision = decideEnemyAction(enemy, target, this.config, dt);
       const stats = enemy.kind === 'chaser' ? this.config.chaser : this.config.shooter;
       if (decision.moveForward) this.moveForward(enemy, stats.moveSpeed, dt);
       return decision;
     });
 
-    // 2. Keep enemies from stacking on top of each other.
-    for (let i = 0; i < alive.length; i++) {
-      for (let j = i + 1; j < alive.length; j++) {
-        const a = alive[i];
-        const b = alive[j];
-        separateCircles(a.position, a.radius, b.position, b.radius);
+    // 2. Keep enemies from stacking on top of each other. Two passes, because
+    //    pushing one pair apart can create a small overlap with a third ship.
+    for (let pass = 0; pass < 2; pass++) {
+      for (let i = 0; i < alive.length; i++) {
+        for (let j = i + 1; j < alive.length; j++) {
+          const a = alive[i];
+          const b = alive[j];
+          separateCircles(a.position, a.radius, b.position, b.radius);
+        }
       }
     }
 
@@ -282,6 +303,17 @@ export class GameSimulation {
         this.checkChaserImpact(enemy);
       }
     });
+
+    // 4. Ships are solid: the player cannot sail through a Shooter, and a
+    //    Shooter cannot sail through the player. Both are pushed apart by half
+    //    the overlap, so they bump instead of overlapping. (A Chaser that
+    //    touches the player explodes instead, handled above.)
+    for (const enemy of alive) {
+      if (enemy.kind !== 'shooter' || enemy.health <= 0) continue;
+      separateCircles(this.player.position, this.player.radius, enemy.position, enemy.radius);
+      this.keepShipInPlayableArea(enemy);
+    }
+    this.keepShipInPlayableArea(this.player);
   }
 
   private updateShooterWeapon(enemy: EnemyShip, wantsToFire: boolean, dt: number): void {
@@ -291,6 +323,60 @@ export class GameSimulation {
 
     this.fire(enemy, 'front', weapon, 'enemy');
     enemy.fireCooldown = weapon.cooldown;
+  }
+
+  /**
+   * Where a Chaser should steer this frame.
+   *
+   * If nothing is in the way, it goes straight at the player. If an island
+   * blocks the straight line, it heads for a corner of that island instead
+   * (a point just outside it), picking the corner that makes the shortest
+   * trip to the player. Once it rounds the corner, the player is in sight
+   * again and it attacks directly. This is a simple form of "steering around
+   * obstacles", much lighter than a full path-finding algorithm.
+   */
+  private chaserTarget(chaser: EnemyShip): Vector2 {
+    const target = this.player.position;
+    // Slightly smaller than the real contact distance, so a ship that is
+    // just touching the coast still "sees" past it.
+    const blockedArea = (obstacle: Rect) => inflateRect(obstacle, chaser.radius - 1);
+
+    // The blocking island closest to the Chaser (if any).
+    let blocking: Rect | null = null;
+    for (const obstacle of this.obstacles) {
+      if (!segmentIntersectsRect(chaser.position, target, blockedArea(obstacle))) continue;
+      if (!blocking || distanceToRect(chaser.position, obstacle) < distanceToRect(chaser.position, blocking)) {
+        blocking = obstacle;
+      }
+    }
+    if (!blocking) return target;
+
+    // Candidate corners, a little outside the island so the ship clears it.
+    const around = inflateRect(blocking, chaser.radius + CHASER_CORNER_MARGIN);
+    const { width, height } = this.config.arena;
+    const corners: Vector2[] = [
+      { x: around.x, y: around.y },
+      { x: around.x + around.width, y: around.y },
+      { x: around.x, y: around.y + around.height },
+      { x: around.x + around.width, y: around.y + around.height },
+    ].map((corner) => ({
+      x: clamp(corner.x, chaser.radius, width - chaser.radius),
+      y: clamp(corner.y, chaser.radius, height - chaser.radius),
+    }));
+
+    let best: Vector2 | null = null;
+    let bestCost = Infinity;
+    for (const corner of corners) {
+      // Skip a corner already reached, and corners hidden behind the island.
+      if (distance(chaser.position, corner) < CHASER_CORNER_REACHED) continue;
+      if (segmentIntersectsRect(chaser.position, corner, blockedArea(blocking))) continue;
+      const cost = distance(chaser.position, corner) + distance(corner, target);
+      if (cost < bestCost) {
+        bestCost = cost;
+        best = corner;
+      }
+    }
+    return best ?? target;
   }
 
   /** A Chaser touching the player damages it and explodes (no points). */
