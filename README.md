@@ -196,4 +196,4 @@ See [ARCHITECTURE.md](./ARCHITECTURE.md#limitations-and-trade-offs) for the reas
 
 ## Assets and licenses
 
-All images and sounds in `public/assets/` are the assets provided by the challenge (sounds are played with the Web Audio API: shots, impacts, explosions, start, pause, end, a time warning and the ocean ambience) ([junglegaming/game-developer-challenge](https://github.com/junglegaming/game-developer-challenge)). No external assets were added. Ship damage states, health bars, menu panels and buttons use these files directly; health bar measurements come from `assets/spritesheet/ui_sheet.json`.
+All images and sounds in `public/assets/` are the assets provided by the challenge (sounds are played with the Web Audio API: shots, impacts, explosions, points, start, pause, end, time and low-health warnings and the ocean ambience) ([junglegaming/game-developer-challenge](https://github.com/junglegaming/game-developer-challenge)). No external assets were added. Ship damage states, health bars, menu panels and buttons use these files directly; health bar measurements come from `assets/spritesheet/ui_sheet.json`.

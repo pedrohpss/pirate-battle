@@ -116,6 +116,7 @@ export class GameSimulation {
         kind: 'player',
         position: { ...this.player.position },
         angle: this.player.angle,
+        scored: false,
       });
     } else if (this.timeLeft <= 0) {
       this.endReason = 'time';
@@ -304,7 +305,7 @@ export class GameSimulation {
 
     this.damagePlayer(this.config.chaser.contactDamage);
     chaser.health = 0;
-    this.pushShipDestroyed(chaser);
+    this.pushShipDestroyed(chaser, false); // a ram never scores
   }
 
   /** Removes enemies with no health left, so they stop acting and colliding. */
@@ -325,16 +326,17 @@ export class GameSimulation {
 
     if (enemy.health === 0) {
       this.score += 1;
-      this.pushShipDestroyed(enemy);
+      this.pushShipDestroyed(enemy, true);
     }
   }
 
-  private pushShipDestroyed(enemy: EnemyShip): void {
+  private pushShipDestroyed(enemy: EnemyShip, scored: boolean): void {
     this.events.push({
       type: 'shipDestroyed',
       kind: enemy.kind,
       position: { ...enemy.position },
       angle: enemy.angle,
+      scored,
     });
   }
 

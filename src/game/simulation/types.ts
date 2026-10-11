@@ -85,4 +85,11 @@ export interface Projectile {
 export type GameEvent =
   | { type: 'shotFired'; team: Team; position: Vector2; angle: number }
   | { type: 'projectileImpact'; position: Vector2; surface: 'island' | 'water' | 'ship' }
-  | { type: 'shipDestroyed'; kind: ShipKind; position: Vector2; angle: number };
+  | {
+      type: 'shipDestroyed';
+      kind: ShipKind;
+      position: Vector2;
+      angle: number;
+      /** True when this destruction gave the player a point (sunk by the player's cannons). */
+      scored: boolean;
+    };

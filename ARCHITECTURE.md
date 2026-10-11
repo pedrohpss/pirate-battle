@@ -122,15 +122,15 @@ publishSnapshot(); // to the MatchStore
 - **Entity sync:** the renderer keeps `Map<id, view>` for enemies and projectiles. Each frame it creates views for new ids, updates existing ones and destroys views whose id disappeared, so sprites never leak.
 - **Ship deterioration:** the asset pack has four images per ship colour (intact, damaged, badly damaged, wrecked). `getDamageStage` picks one from the health ratio.
 - **Health bars** follow the asset metadata in `ui_sheet.json`: frame first, fill on top, clipped from the left with a mask whose width is the health ratio. The mask is redrawn only when the ratio changes.
-- **Effects** (muzzle flash, impacts, water splash, explosion, sinking wreck) grow and fade with linear interpolation and destroy their sprite when finished.
+- **Effects** (muzzle flash, impacts, water splash, explosion, sinking wreck, and a rising "+1" text when a kill scores) grow and fade with linear interpolation and destroy their sprite when finished. The `shipDestroyed` event carries `scored`, so the "+1" never appears for a Chaser ram.
 - **Texture loading:** all textures are loaded in parallel through `Assets` (cached, reused across matches), with a progress callback shown as a percentage. If any file fails, loading rejects and the match never starts; the player sees an accessible error with **Try Again**.
 - **Teardown:** `GameSession.destroy()` detaches the keyboard and every listener, unsubscribes from the store and destroys the PixiJS application with all children (ticker, canvas, sprites).
 
 ### Sound
 
 `src/game/audio/SoundPlayer.ts` plays the challenge's WAV files with the Web Audio API. The session gives it the same `GameEvent`s as the renderer, plus status changes:
-- **Events:** shots, impacts (water, island or ship) and explosions. At most one sound of each kind per frame, so a 3-shot broadside is one "boom".
-- **Status:** a start sound and the ocean loop when the match runs, a pause sound and silence while paused, a resume sound, and a "complete" or "game over" sound at the end. A warning sound plays once at 10 seconds left.
+- **Events:** shots, impacts (water, island or ship), explosions and a point sound when a kill scores. At most one sound of each kind per frame, so a 3-shot broadside is one "boom".
+- **Status:** a start sound and the ocean loop when the match runs, a pause sound and silence while paused, a resume sound, and a "complete" or "game over" sound at the end. A warning sound plays once at 10 seconds left, and another once when the player's health first drops below 30%.
 - **Loading and failures:** files load in parallel with the textures, and the match never waits for them. A missing file or blocked audio just means silence for that sound, never an error.
 - **Browser rules:** audio is only allowed after a user interaction. The context is created after the player clicks Play and, if the browser kept it suspended, is resumed on the next key press or the end of a touch (iPhones do not accept the start of a touch), playing one silent sample to fully unlock older iPhones. On iOS 17+ the audio session is set to `playback`, so the side silent switch does not mute the game.
 - **Mute:** `src/settings/sound.ts` is a small store saved in `localStorage`. The HUD button (`aria-pressed`) and the `M` key toggle it; the player sets the master volume to 0.

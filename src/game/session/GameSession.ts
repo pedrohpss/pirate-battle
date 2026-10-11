@@ -32,6 +32,9 @@ const MUTE_KEY = 'KeyM';
 /** A warning sound plays when this many seconds are left. */
 const TIME_WARNING_AT = 10;
 
+/** A warning sound plays when the player's health drops below this fraction (30%). */
+const LOW_HEALTH_AT = 0.3;
+
 /**
  * Owns everything that lives during one match: the PixiJS application,
  * the simulation, the renderer, the keyboard and the browser listeners.
@@ -55,6 +58,8 @@ export class GameSession {
   private lastStatus: MatchStatus = 'loading';
   /** Last whole second shown, to play the time warning once. */
   private lastTimeLeft = Infinity;
+  /** True once the low-health warning has played (health never goes back up). */
+  private lowHealthWarned = false;
   private unsubscribeFromStore: (() => void) | null = null;
   /** Test mode (?test=1): the clock is advanced by the tests, not by real time. */
   private readonly testOptions = readTestOptions();
@@ -264,6 +269,13 @@ export class GameSession {
       this.sound?.play('timeWarning', 0.6);
     }
     this.lastTimeLeft = timeLeft;
+
+    // Low health warning: once, when health first drops below 30% (not when the ship sinks).
+    const { health, maxHealth } = simulation.player;
+    if (!this.lowHealthWarned && health > 0 && health < maxHealth * LOW_HEALTH_AT) {
+      this.lowHealthWarned = true;
+      this.sound?.play('healthLow', 0.7);
+    }
 
     if (simulation.isOver && this.store.getSnapshot().status !== 'ended') {
       this.store.update({

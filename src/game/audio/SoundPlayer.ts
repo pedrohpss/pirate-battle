@@ -22,6 +22,8 @@ const SOUND_FILES = {
   woodHit: ['ship_wood_hit_1', 'ship_wood_hit_2'],
   explosion: ['ship_explosion_1', 'ship_explosion_2'],
   sinking: ['ship_sinking'],
+  scorePoint: ['score_point'],
+  healthLow: ['health_low'],
   ambient: ['ocean_ambience_loop'],
 } as const;
 
@@ -146,6 +148,7 @@ export class SoundPlayer {
         case 'shipDestroyed':
           if (event.kind === 'player') this.play('sinking', 0.9);
           else this.play('explosion', 0.8);
+          if (event.scored) this.play('scorePoint', 0.7);
           break;
       }
     }
