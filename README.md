@@ -190,6 +190,7 @@ public/
 - Ships use circular hitboxes, so the bow can overlap the sand slightly at some angles.
 - Enemies do not path-find around islands: they slide along the coast and can get stuck behind an island for a while.
 - The Shooter does not check line of sight; its shots simply hit the island in between.
+- No sound yet: the challenge's sound files are included in `public/assets/sounds/`, but the game does not play them.
 
 See [ARCHITECTURE.md](./ARCHITECTURE.md#limitations-and-trade-offs) for the reasoning behind these trade-offs.
 
