@@ -86,13 +86,29 @@ function readPaging(url: URL): { page: number; pageSize: number } | null {
   return { page, pageSize };
 }
 
+/** First and last names for the extra sample players of "many-pages". */
+const EXTRA_FIRST_NAMES = [
+  'Lucas', 'Mariana', 'João', 'Beatriz', 'Gabriel', 'Larissa', 'Mateus', 'Camila',
+  'Thiago', 'Juliana', 'Felipe', 'Amanda', 'Bruno', 'Letícia', 'Diego',
+];
+const EXTRA_LAST_NAMES = [
+  'Silva', 'Oliveira', 'Souza', 'Lima', 'Costa', 'Almeida', 'Ribeiro', 'Carvalho', 'Gomes', 'Martins',
+];
+
+/** A different, made-up name for each index (0–44), the same every time. */
+function extraPlayerName(index: number): string {
+  const first = EXTRA_FIRST_NAMES[index % EXTRA_FIRST_NAMES.length];
+  const last = EXTRA_LAST_NAMES[(index + Math.floor(index / EXTRA_FIRST_NAMES.length)) % EXTRA_LAST_NAMES.length];
+  return `${first} ${last}`;
+}
+
 /** 45 extra ranking entries for the "many-pages" scenario, the same every time. */
 function extraMatches(settings: MatchSettings): MatchRecord[] {
   const generate = createSeededRandom(4242);
   return Array.from({ length: 45 }, (_, index) => ({
     matchId: `extra-match-${String(index + 1).padStart(3, '0')}`,
     playerId: `extra-player-${index + 1}`,
-    playerName: `Deckhand ${index + 1}`,
+    playerName: extraPlayerName(index),
     endedAt: new Date(Date.UTC(2026, 8, 1, 12, index)).toISOString(),
     score: Math.floor(generate() * 10),
     duration: settings.matchDuration,

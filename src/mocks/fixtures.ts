@@ -1,7 +1,8 @@
 import type { MatchRecord, MatchSettings } from '../api/contracts';
 
 /**
- * Matches of other (fictional) players, so the ranking is never empty.
+ * Matches of other (sample) players, so the ranking is never empty.
+ * A player can appear more than once (several matches).
  * Most use the default settings (90 s, enemy every 4 s) so the default
  * ranking has several pages; a few use other settings, which shows that
  * matches are only compared with matches played under the same settings.
@@ -36,23 +37,26 @@ function fixture(
 }
 
 export const FIXTURE_MATCHES: readonly MatchRecord[] = [
-  fixture(1, 'Saltbeard', 14, 90, 'time', '2026-10-01T18:20:00.000Z', DEFAULT_SETTINGS),
-  fixture(2, 'Red Ines', 12, 90, 'time', '2026-10-02T14:05:00.000Z', DEFAULT_SETTINGS),
-  fixture(3, 'Mara Gale', 11, 78.4, 'death', '2026-10-02T21:40:00.000Z', DEFAULT_SETTINGS),
-  fixture(4, 'Iron Ruth', 11, 90, 'time', '2026-10-03T10:15:00.000Z', DEFAULT_SETTINGS),
-  fixture(5, 'Old Tobias', 9, 90, 'time', '2026-10-03T19:30:00.000Z', DEFAULT_SETTINGS),
-  fixture(6, 'Jade Corsair', 8, 64.2, 'death', '2026-10-04T16:50:00.000Z', DEFAULT_SETTINGS),
-  fixture(7, 'Silent Pike', 7, 59.8, 'death', '2026-10-05T12:00:00.000Z', DEFAULT_SETTINGS),
-  fixture(8, 'Barnacle Bo', 6, 90, 'time', '2026-10-05T22:10:00.000Z', DEFAULT_SETTINGS),
-  fixture(9, 'Finn Tide', 5, 47.1, 'death', '2026-10-06T09:45:00.000Z', DEFAULT_SETTINGS),
-  fixture(10, 'Coral Vex', 4, 38.6, 'death', '2026-10-06T20:20:00.000Z', DEFAULT_SETTINGS),
-  fixture(11, 'Dusk Harper', 3, 31.0, 'death', '2026-10-07T13:35:00.000Z', DEFAULT_SETTINGS),
-  fixture(12, 'Captain Marlow', 2, 22.5, 'death', '2026-10-08T17:00:00.000Z', DEFAULT_SETTINGS),
-  fixture(13, 'Saltbeard', 9, 60, 'time', '2026-10-02T11:00:00.000Z', SHORT_SETTINGS),
-  fixture(14, 'Finn Tide', 7, 60, 'time', '2026-10-04T15:30:00.000Z', SHORT_SETTINGS),
-  fixture(15, 'Coral Vex', 4, 41.3, 'death', '2026-10-07T18:45:00.000Z', SHORT_SETTINGS),
-  fixture(16, 'Iron Ruth', 22, 180, 'time', '2026-10-03T20:00:00.000Z', LONG_SETTINGS),
-  fixture(17, 'Old Tobias', 15, 141.7, 'death', '2026-10-06T10:10:00.000Z', LONG_SETTINGS),
-  fixture(18, 'Red Ines', 10, 66.9, 'death', '2026-10-05T19:25:00.000Z', HARD_SETTINGS),
-  fixture(19, 'Mara Gale', 6, 44.0, 'death', '2026-10-07T21:05:00.000Z', HARD_SETTINGS),
+  // Default settings (90 s, enemy every 4 s): 12 matches, so the ranking has 3 pages.
+  fixture(1, 'Robson Cezario', 14, 90, 'time', '2026-10-01T18:20:00.000Z', DEFAULT_SETTINGS),
+  fixture(2, 'Natalia', 12, 90, 'time', '2026-10-02T14:05:00.000Z', DEFAULT_SETTINGS),
+  // Same score as the next one: the shorter match wins the tie.
+  fixture(3, 'Carlos Eduardo', 11, 78.4, 'death', '2026-10-02T21:40:00.000Z', DEFAULT_SETTINGS),
+  fixture(4, 'Gustavo Santos', 11, 90, 'time', '2026-10-03T10:15:00.000Z', DEFAULT_SETTINGS),
+  fixture(5, 'Alexandre Junior', 9, 90, 'time', '2026-10-03T19:30:00.000Z', DEFAULT_SETTINGS),
+  fixture(6, 'Rafael Fernandes', 8, 64.2, 'death', '2026-10-04T16:50:00.000Z', DEFAULT_SETTINGS),
+  fixture(7, 'Alyce', 7, 59.8, 'death', '2026-10-05T12:00:00.000Z', DEFAULT_SETTINGS),
+  fixture(8, 'Rafael', 6, 90, 'time', '2026-10-05T22:10:00.000Z', DEFAULT_SETTINGS),
+  fixture(9, 'Pedro Henrique', 5, 47.1, 'death', '2026-10-06T09:45:00.000Z', DEFAULT_SETTINGS),
+  fixture(10, 'Vitória', 4, 38.6, 'death', '2026-10-06T20:20:00.000Z', DEFAULT_SETTINGS),
+  fixture(11, 'Pedro Santos', 3, 31.0, 'death', '2026-10-07T13:35:00.000Z', DEFAULT_SETTINGS),
+  fixture(12, 'Gustavo Santos', 2, 22.5, 'death', '2026-10-08T17:00:00.000Z', DEFAULT_SETTINGS),
+  // Other settings: these never mix with the default ranking.
+  fixture(13, 'Robson Cezario', 9, 60, 'time', '2026-10-02T11:00:00.000Z', SHORT_SETTINGS),
+  fixture(14, 'Pedro Henrique', 7, 60, 'time', '2026-10-04T15:30:00.000Z', SHORT_SETTINGS),
+  fixture(15, 'Vitória', 4, 41.3, 'death', '2026-10-07T18:45:00.000Z', SHORT_SETTINGS),
+  fixture(16, 'Natalia', 22, 180, 'time', '2026-10-03T20:00:00.000Z', LONG_SETTINGS),
+  fixture(17, 'Alexandre Junior', 15, 141.7, 'death', '2026-10-06T10:10:00.000Z', LONG_SETTINGS),
+  fixture(18, 'Alyce', 10, 66.9, 'death', '2026-10-05T19:25:00.000Z', HARD_SETTINGS),
+  fixture(19, 'Carlos Eduardo', 6, 44.0, 'death', '2026-10-07T21:05:00.000Z', HARD_SETTINGS),
 ];
