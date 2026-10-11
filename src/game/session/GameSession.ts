@@ -1,5 +1,7 @@
 import { Application } from 'pixi.js';
 import type { Ticker } from 'pixi.js';
+import { soundSettings } from '../../settings/sound';
+import { SoundPlayer } from '../audio/SoundPlayer';
 import type { GameConfig } from '../config';
 import { KeyboardInput } from '../input/KeyboardInput';
 import { mergeInputs } from '../input/TouchInput';
@@ -10,7 +12,7 @@ import { GameSimulation } from '../simulation/GameSimulation';
 import { createSeededRandom } from '../simulation/math';
 import { readTestOptions } from '../testing/testMode';
 import type { PirateTestApi, TestState } from '../testing/testMode';
-import type { MatchStore } from './MatchStore';
+import type { MatchStatus, MatchStore } from './MatchStore';
 
 /**
  * Upper limit for a single frame step, in seconds.
@@ -23,6 +25,12 @@ const TEST_STEP = 1 / 60;
 
 /** Keys that pause the game. */
 const PAUSE_KEYS = new Set(['Escape', 'KeyP']);
+
+/** Key that turns the sound on and off. */
+const MUTE_KEY = 'KeyM';
+
+/** A warning sound plays when this many seconds are left. */
+const TIME_WARNING_AT = 10;
 
 /**
  * Owns everything that lives during one match: the PixiJS application,
@@ -41,6 +49,12 @@ export class GameSession {
   private readonly keyboard = new KeyboardInput();
   private simulation: GameSimulation | null = null;
   private renderer: GameRenderer | null = null;
+  /** Sound effects (not used in test and profiling modes). */
+  private sound: SoundPlayer | null = null;
+  /** Last status seen, to play a sound only when it changes. */
+  private lastStatus: MatchStatus = 'loading';
+  /** Last whole second shown, to play the time warning once. */
+  private lastTimeLeft = Infinity;
   private unsubscribeFromStore: (() => void) | null = null;
   /** Test mode (?test=1): the clock is advanced by the tests, not by real time. */
   private readonly testOptions = readTestOptions();
@@ -72,6 +86,13 @@ export class GameSession {
       return;
     }
     this.container.appendChild(this.app.canvas);
+
+    // Sounds load in parallel with the textures; the match never waits for them.
+    // Tests and profiling run silent, so they stay fast and repeatable.
+    if (!this.testOptions.enabled && !this.testOptions.perf) {
+      this.sound = new SoundPlayer();
+      void this.sound.load();
+    }
 
     try {
       const textures = await loadGameTextures((progress) =>
@@ -123,6 +144,7 @@ export class GameSession {
     window.removeEventListener('blur', this.onFocusLost);
     document.removeEventListener('visibilitychange', this.onVisibilityChange);
     this.unsubscribeFromStore?.();
+    this.sound?.destroy();
     if (this.testApi && window.__PIRATE_TEST__ === this.testApi) delete window.__PIRATE_TEST__;
     if (this.initialized) this.app.destroy(true, { children: true });
   }
@@ -148,8 +170,10 @@ export class GameSession {
     }
 
     // Effects freeze while paused, but keep playing after the match ends
-    // (so the final explosion finishes).
-    renderer.render(status === 'paused' ? 0 : dt, simulation.drainEvents());
+    // (so the final explosion finishes). The same events also drive the sounds.
+    const events = simulation.drainEvents();
+    renderer.render(status === 'paused' ? 0 : dt, events);
+    this.sound?.handleEvents(events);
     this.publishSnapshot();
   }
 
@@ -227,12 +251,19 @@ export class GameSession {
     const simulation = this.simulation;
     if (!simulation) return;
 
+    const timeLeft = Math.ceil(simulation.timeLeft);
     this.store.update({
       score: simulation.score,
       health: simulation.player.health,
       maxHealth: simulation.player.maxHealth,
-      timeLeft: Math.ceil(simulation.timeLeft),
+      timeLeft,
     });
+
+    // Time warning: once, when the clock reaches the last seconds.
+    if (timeLeft <= TIME_WARNING_AT && this.lastTimeLeft > TIME_WARNING_AT && !simulation.isOver) {
+      this.sound?.play('timeWarning', 0.6);
+    }
+    this.lastTimeLeft = timeLeft;
 
     if (simulation.isOver && this.store.getSnapshot().status !== 'ended') {
       this.store.update({
@@ -245,13 +276,24 @@ export class GameSession {
 
   /** Game keys and touch buttons only act while the match is running. */
   private readonly onStatusChange = (): void => {
-    const running = this.store.getSnapshot().status === 'running';
+    const { status, endReason } = this.store.getSnapshot();
+    const running = status === 'running';
     this.keyboard.setEnabled(running);
     this.touch.setEnabled(running);
+
+    // The store also notifies for score and time: only real status changes make a sound.
+    if (status !== this.lastStatus) {
+      this.sound?.statusChanged(this.lastStatus, status, endReason);
+      this.lastStatus = status;
+    }
   };
 
-  /** Manual pause with Esc or P. */
+  /** Manual pause with Esc or P; M turns the sound on and off. */
   private readonly onKeyDown = (event: KeyboardEvent): void => {
+    if (event.code === MUTE_KEY && !event.repeat) {
+      soundSettings.toggle();
+      return;
+    }
     if (!PAUSE_KEYS.has(event.code)) return;
     if (this.store.getSnapshot().status !== 'running') return;
     event.preventDefault();

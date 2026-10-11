@@ -67,7 +67,7 @@ publishSnapshot(); // to the MatchStore
 - **`dt` cap (0.1 s):** after a stall or a hidden tab, the first frame cannot make ships jump or tunnel through an island. With the cap, a ship moves at most 18 u per step (less than its radius, so it cannot cross a coast in one step) and the fastest projectile at most 48 u (less than a ship's diameter, so it cannot skip over a ship).
 - **Order inside `update`:** player movement → player weapons → spawning → enemy AI, movement, separation, collisions and attacks → projectiles → removal of destroyed enemies → end-of-match check.
 - **Exact end:** the step is clamped to the time left (`Math.min(dt, timeLeft)`), so a match always ends exactly at its configured duration.
-- **Events:** the simulation records what happened (`shotFired`, `projectileImpact`, `shipDestroyed`) in a list. The session drains it each frame and hands it to the renderer. Draining guarantees each event produces its effect once, even while paused. Sound can be added later by reading the same events.
+- **Events:** the simulation records what happened (`shotFired`, `projectileImpact`, `shipDestroyed`) in a list. The session drains it each frame and hands it to the renderer. Draining guarantees each event produces its effect once, even while paused. The same events drive the sounds (see [Sound](#sound)), so audio was added without touching the simulation.
 
 ## 4. Collisions
 
@@ -125,6 +125,17 @@ publishSnapshot(); // to the MatchStore
 - **Effects** (muzzle flash, impacts, water splash, explosion, sinking wreck) grow and fade with linear interpolation and destroy their sprite when finished.
 - **Texture loading:** all textures are loaded in parallel through `Assets` (cached, reused across matches), with a progress callback shown as a percentage. If any file fails, loading rejects and the match never starts; the player sees an accessible error with **Try Again**.
 - **Teardown:** `GameSession.destroy()` detaches the keyboard and every listener, unsubscribes from the store and destroys the PixiJS application with all children (ticker, canvas, sprites).
+
+### Sound
+
+`src/game/audio/SoundPlayer.ts` plays the challenge's WAV files with the Web Audio API. The session gives it the same `GameEvent`s as the renderer, plus status changes:
+- **Events:** shots, impacts (water, island or ship) and explosions. At most one sound of each kind per frame, so a 3-shot broadside is one "boom".
+- **Status:** a start sound and the ocean loop when the match runs, a pause sound and silence while paused, a resume sound, and a "complete" or "game over" sound at the end. A warning sound plays once at 10 seconds left.
+- **Loading and failures:** files load in parallel with the textures, and the match never waits for them. A missing file or blocked audio just means silence for that sound, never an error.
+- **Browser rules:** audio is only allowed after a user interaction. The context is created after the player clicks Play and is resumed on the next key or touch if the browser kept it suspended.
+- **Mute:** `src/settings/sound.ts` is a small store saved in `localStorage`. The HUD button (`aria-pressed`) and the `M` key toggle it; the player sets the master volume to 0.
+- **Lifecycle:** `GameSession.destroy()` stops the loop and closes the audio context, so nothing keeps playing in the menu.
+- **Tests and profiling** run silent (no audio context), so they stay fast and repeatable; the mute setting itself is tested.
 
 ## 9. Local persistence
 

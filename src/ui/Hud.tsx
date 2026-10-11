@@ -1,4 +1,7 @@
+import { useSyncExternalStore } from 'react';
+import type { MouseEvent } from 'react';
 import type { MatchSnapshot } from '../game/session/MatchStore';
+import { soundSettings } from '../settings/sound';
 import { formatTime } from './format';
 
 const HUD_PATH = '/assets/png/default/ui/hud';
@@ -40,12 +43,13 @@ export function Hud({ match, onPause, showKeyboardHint }: HudProps) {
         >
           <img src={`${CONTROLS_PATH}/icon_pause.png`} alt="" />
         </button>
+        <SoundButton />
       </section>
 
       {showKeyboardHint && (
         <p className="controls-hint">
           <kbd>W</kbd>/<kbd>↑</kbd> sail · <kbd>A</kbd> <kbd>D</kbd> turn · <kbd>Space</kbd> bow
-          cannon · <kbd>Q</kbd> <kbd>E</kbd> broadsides · <kbd>Esc</kbd> pause
+          cannon · <kbd>Q</kbd> <kbd>E</kbd> broadsides · <kbd>Esc</kbd> pause · <kbd>M</kbd> sound
         </p>
       )}
 
@@ -78,4 +82,42 @@ function statusMessage(match: MatchSnapshot): string {
     default:
       return '';
   }
+}
+
+/** Sound on/off. Works at any moment of the match; the choice is saved. */
+function SoundButton() {
+  const muted = useSyncExternalStore(soundSettings.subscribe, soundSettings.isMuted);
+
+  function handleClick(event: MouseEvent<HTMLButtonElement>) {
+    soundSettings.toggle();
+    // After a mouse click, give focus back to the game: otherwise pressing
+    // Space (bow cannon) would "click" this button again.
+    if (event.detail > 0) event.currentTarget.blur();
+  }
+
+  return (
+    <button
+      type="button"
+      className="round-button"
+      onClick={handleClick}
+      aria-pressed={muted}
+      aria-label="Mute sound (M)"
+    >
+      <SpeakerIcon muted={muted} />
+    </button>
+  );
+}
+
+/** Simple speaker drawing (the challenge assets have no sound icon). */
+function SpeakerIcon({ muted }: { muted: boolean }) {
+  return (
+    <svg className="sound-icon" viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M3 9h4l5-4v14l-5-4H3z" />
+      {muted ? (
+        <path d="M16 9l5 6M21 9l-5 6" fill="none" />
+      ) : (
+        <path d="M15.5 8.5a5 5 0 0 1 0 7M18 6a8.5 8.5 0 0 1 0 12" fill="none" />
+      )}
+    </svg>
+  );
 }

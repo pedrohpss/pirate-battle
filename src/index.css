@@ -139,6 +139,17 @@ body {
   cursor: pointer;
 }
 
+/* Speaker icon of the sound button, drawn to match the cream HUD icons. */
+.sound-icon {
+  width: 26px;
+  height: 26px;
+  fill: #fbecc8;
+  stroke: #4a2a10;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
 .round-button:hover {
   background-image: url('/assets/png/default/ui/controls/button_round_hover.png');
 }

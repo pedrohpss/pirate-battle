@@ -7,6 +7,7 @@ const CONTROLS = [
   { keys: ['Q'], action: 'Fire left broadside (3 shots)' },
   { keys: ['E'], action: 'Fire right broadside (3 shots)' },
   { keys: ['Esc', 'P'], action: 'Pause' },
+  { keys: ['M'], action: 'Sound on/off' },
 ];
 
 export function ControlsHelp() {

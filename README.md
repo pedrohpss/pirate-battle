@@ -89,6 +89,7 @@ Keyboard (game keys are only captured while a match is running):
 | `Q` | Left broadside (3 parallel shots) |
 | `E` | Right broadside (3 parallel shots) |
 | `Esc` / `P` | Pause |
+| `M` | Sound on / off (also a button in the HUD; the choice is saved) |
 
 Moving and firing can be combined freely. The game also pauses automatically when the window loses focus or the tab is hidden; resuming always requires the player (Resume button or `Esc`).
 
@@ -190,10 +191,9 @@ public/
 - Ships use circular hitboxes, so the bow can overlap the sand slightly at some angles.
 - Enemies do not path-find around islands: they slide along the coast and can get stuck behind an island for a while.
 - The Shooter does not check line of sight; its shots simply hit the island in between.
-- No sound yet: the challenge's sound files are included in `public/assets/sounds/`, but the game does not play them.
 
 See [ARCHITECTURE.md](./ARCHITECTURE.md#limitations-and-trade-offs) for the reasoning behind these trade-offs.
 
 ## Assets and licenses
 
-All images and sounds in `public/assets/` are the assets provided by the challenge ([junglegaming/game-developer-challenge](https://github.com/junglegaming/game-developer-challenge)). No external assets were added. Ship damage states, health bars, menu panels and buttons use these files directly; health bar measurements come from `assets/spritesheet/ui_sheet.json`.
+All images and sounds in `public/assets/` are the assets provided by the challenge (sounds are played with the Web Audio API: shots, impacts, explosions, start, pause, end, a time warning and the ocean ambience) ([junglegaming/game-developer-challenge](https://github.com/junglegaming/game-developer-challenge)). No external assets were added. Ship damage states, health bars, menu panels and buttons use these files directly; health bar measurements come from `assets/spritesheet/ui_sheet.json`.
