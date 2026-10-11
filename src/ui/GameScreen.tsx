@@ -34,6 +34,9 @@ interface GameScreenProps {
  * throws the old one away completely. That guarantees a clean restart:
  * new store, new simulation, new canvas, and the old ones destroyed.
  */
+/** How long the "sink enemy ships" reminder stays on screen at the start. */
+const GOAL_HINT_SECONDS = 4;
+
 export function GameScreen({
   config,
   onPlayAgain,
@@ -101,6 +104,14 @@ export function GameScreen({
 
       {inMatch && (
         <Hud match={match} onPause={() => store.pause()} showKeyboardHint={!showTouchControls} />
+      )}
+
+      {/* Reminder of the goal during the first seconds of the match.
+          Hidden from screen readers: the main menu explains it in "How to play". */}
+      {match.status === 'running' && config.matchDuration - match.timeLeft < GOAL_HINT_SECONDS && (
+        <p className="goal-hint" aria-hidden="true">
+          Sink enemy ships to score points!
+        </p>
       )}
 
       {match.status === 'running' && showTouchControls && <TouchControls touch={touch} />}

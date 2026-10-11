@@ -168,6 +168,46 @@ body {
   height: 24px;
 }
 
+.goal-hint {
+  position: absolute;
+  top: 30%;
+  left: 50%;
+  transform: translateX(-50%);
+  margin: 0;
+  padding: 10px 18px;
+  border-radius: 12px;
+  background: rgba(14, 53, 80, 0.85);
+  color: var(--color-gold);
+  font-size: 1.3rem;
+  font-weight: 800;
+  text-align: center;
+  pointer-events: none;
+  animation: goal-hint-fade 4s ease-out forwards;
+}
+
+/* Visible, then fades out at the end of its 4 seconds. */
+@keyframes goal-hint-fade {
+  0%,
+  75% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .goal-hint {
+    animation: none;
+  }
+}
+
+.goal-list {
+  margin: 0;
+  padding-left: 1.2rem;
+  line-height: 1.5;
+}
+
 .controls-hint {
   position: absolute;
   bottom: 8px;

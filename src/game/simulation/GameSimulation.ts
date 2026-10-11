@@ -28,11 +28,11 @@ import type {
 
 const WEAPON_SLOTS: WeaponSlot[] = ['front', 'left', 'right'];
 
-/** How far outside an island's corner a Chaser aims when sailing around it. */
-const CHASER_CORNER_MARGIN = 12;
+/** How far outside an island's corner an enemy aims when sailing around it. */
+const DETOUR_CORNER_MARGIN = 12;
 
 /** A corner closer than this counts as reached, and the next one is chosen. */
-const CHASER_CORNER_REACHED = 15;
+const DETOUR_CORNER_REACHED = 15;
 
 /** Shortest distance from a point to a rectangle (0 if inside). */
 function distanceToRect(point: Vector2, rect: Rect): number {
@@ -273,9 +273,14 @@ export class GameSimulation {
 
     // 1. Think and move.
     const decisions = alive.map((enemy) => {
-      // Chasers sail around islands instead of pushing against them.
-      const target = enemy.kind === 'chaser' ? this.chaserTarget(enemy) : this.player.position;
-      const decision = decideEnemyAction(enemy, target, this.config, dt);
+      // If an island hides the player, sail around it instead of pushing
+      // against it (and a Shooter holds its fire: it cannot see the player).
+      const detour = this.detourAroundIslands(enemy);
+      const decision = decideEnemyAction(enemy, detour ?? this.player.position, this.config, dt);
+      if (detour) {
+        decision.moveForward = true;
+        decision.wantsToFire = false;
+      }
       const stats = enemy.kind === 'chaser' ? this.config.chaser : this.config.shooter;
       if (decision.moveForward) this.moveForward(enemy, stats.moveSpeed, dt);
       return decision;
@@ -326,33 +331,34 @@ export class GameSimulation {
   }
 
   /**
-   * Where a Chaser should steer this frame.
+   * Where an enemy should steer to get around an island, or null when it can
+   * see the player (then it just follows its normal behaviour).
    *
-   * If nothing is in the way, it goes straight at the player. If an island
-   * blocks the straight line, it heads for a corner of that island instead
-   * (a point just outside it), picking the corner that makes the shortest
-   * trip to the player. Once it rounds the corner, the player is in sight
-   * again and it attacks directly. This is a simple form of "steering around
+   * If an island blocks the straight line to the player, the enemy heads for
+   * a corner of that island instead (a point just outside it), picking the
+   * corner that makes the shortest trip to the player. Once it rounds the
+   * corner, the player is in sight again: a Chaser attacks, a Shooter stops
+   * at its distance and fires. This is a simple form of "steering around
    * obstacles", much lighter than a full path-finding algorithm.
    */
-  private chaserTarget(chaser: EnemyShip): Vector2 {
+  private detourAroundIslands(enemy: EnemyShip): Vector2 | null {
     const target = this.player.position;
     // Slightly smaller than the real contact distance, so a ship that is
     // just touching the coast still "sees" past it.
-    const blockedArea = (obstacle: Rect) => inflateRect(obstacle, chaser.radius - 1);
+    const blockedArea = (obstacle: Rect) => inflateRect(obstacle, enemy.radius - 1);
 
     // The blocking island closest to the Chaser (if any).
     let blocking: Rect | null = null;
     for (const obstacle of this.obstacles) {
-      if (!segmentIntersectsRect(chaser.position, target, blockedArea(obstacle))) continue;
-      if (!blocking || distanceToRect(chaser.position, obstacle) < distanceToRect(chaser.position, blocking)) {
+      if (!segmentIntersectsRect(enemy.position, target, blockedArea(obstacle))) continue;
+      if (!blocking || distanceToRect(enemy.position, obstacle) < distanceToRect(enemy.position, blocking)) {
         blocking = obstacle;
       }
     }
-    if (!blocking) return target;
+    if (!blocking) return null;
 
     // Candidate corners, a little outside the island so the ship clears it.
-    const around = inflateRect(blocking, chaser.radius + CHASER_CORNER_MARGIN);
+    const around = inflateRect(blocking, enemy.radius + DETOUR_CORNER_MARGIN);
     const { width, height } = this.config.arena;
     const corners: Vector2[] = [
       { x: around.x, y: around.y },
@@ -360,23 +366,24 @@ export class GameSimulation {
       { x: around.x, y: around.y + around.height },
       { x: around.x + around.width, y: around.y + around.height },
     ].map((corner) => ({
-      x: clamp(corner.x, chaser.radius, width - chaser.radius),
-      y: clamp(corner.y, chaser.radius, height - chaser.radius),
+      x: clamp(corner.x, enemy.radius, width - enemy.radius),
+      y: clamp(corner.y, enemy.radius, height - enemy.radius),
     }));
 
     let best: Vector2 | null = null;
     let bestCost = Infinity;
     for (const corner of corners) {
       // Skip a corner already reached, and corners hidden behind the island.
-      if (distance(chaser.position, corner) < CHASER_CORNER_REACHED) continue;
-      if (segmentIntersectsRect(chaser.position, corner, blockedArea(blocking))) continue;
-      const cost = distance(chaser.position, corner) + distance(corner, target);
+      if (distance(enemy.position, corner) < DETOUR_CORNER_REACHED) continue;
+      if (segmentIntersectsRect(enemy.position, corner, blockedArea(blocking))) continue;
+      const cost = distance(enemy.position, corner) + distance(corner, target);
       if (cost < bestCost) {
         bestCost = cost;
         best = corner;
       }
     }
-    return best ?? target;
+    // No usable corner (very rare): head straight for the player.
+    return best;
   }
 
   /** A Chaser touching the player damages it and explodes (no points). */

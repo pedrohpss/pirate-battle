@@ -191,7 +191,7 @@ public/
 ## Known limitations
 
 - Ships use circular hitboxes, so the bow can overlap the sand slightly at some angles.
-- Chasers steer around the island that blocks their way (they aim for its nearest useful corner), but this is simple steering, not full path-finding. Shooters still hold their distance in a straight line, so their shots can hit an island in between.
+- Enemies steer around the island that blocks their view of the player (they aim for its most useful corner), and a Shooter holds its fire while an island hides the player. This is simple steering, not full path-finding: with several islands in a row an enemy may take a longer route.
 - Ships bump with simple positional separation (no momentum or bounce); a Chaser touching the player always rams and explodes, as the rules require.
 - The Shooter does not check line of sight; its shots simply hit the island in between.
 

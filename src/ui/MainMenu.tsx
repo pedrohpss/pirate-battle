@@ -81,6 +81,20 @@ export function MainMenu({
           </section>
         )}
 
+        <section aria-labelledby="goal-title">
+          <h2 id="goal-title">How to play</h2>
+          <ul className="goal-list">
+            <li>
+              Sink enemy ships with your cannons: <strong>1 point</strong> each.
+            </li>
+            <li>
+              <strong>Red Chasers</strong> ram you (no points if they hit you);{' '}
+              <strong>green Shooters</strong> fire from a distance.
+            </li>
+            <li>Survive until the timer runs out. Islands block ships and cannonballs.</li>
+          </ul>
+        </section>
+
         <section aria-labelledby="controls-title">
           <h2 id="controls-title">Controls</h2>
           <ControlsHelp />
