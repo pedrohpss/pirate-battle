@@ -27,6 +27,13 @@ const SOUND_FILES = {
 
 export type SoundName = keyof typeof SOUND_FILES;
 
+/**
+ * Interactions that browsers accept as permission to start audio.
+ * iPhones only accept the end of a touch (touchend / pointerup / click),
+ * not the moment the finger goes down.
+ */
+const UNLOCK_EVENTS = ['pointerup', 'touchend', 'click', 'keydown'] as const;
+
 /** Overall volume, and the ocean loop is kept low so it stays in the background. */
 const MASTER_VOLUME = 0.6;
 const AMBIENT_VOLUME = 0.35;
@@ -52,6 +59,17 @@ export class SoundPlayer {
   private readonly unsubscribe: () => void;
 
   constructor() {
+    // iPhones mute Web Audio when the side switch is on silent. A game is
+    // "playback" audio, like a video, so ask iOS (17+) to play it anyway.
+    const audioSession = (navigator as Navigator & { audioSession?: { type: string } }).audioSession;
+    if (audioSession) {
+      try {
+        audioSession.type = 'playback';
+      } catch {
+        // not supported: keep the default
+      }
+    }
+
     let context: AudioContext | null = null;
     try {
       context = new AudioContext();
@@ -67,10 +85,9 @@ export class SoundPlayer {
     this.unsubscribe = soundSettings.subscribe(this.applyMute);
 
     // Browsers only allow audio after the player interacts with the page.
-    // Clicking Play usually counts; these listeners cover the other cases
-    // (for example iPhones, which need a touch on the game screen itself).
-    window.addEventListener('pointerdown', this.unlock);
-    window.addEventListener('keydown', this.unlock);
+    // Clicking Play counts on desktops; phones (iPhones especially) need an
+    // interaction after the audio was created, so the first touch unlocks it.
+    for (const type of UNLOCK_EVENTS) window.addEventListener(type, this.unlock);
   }
 
   /** Downloads and decodes every sound in parallel. Never rejects. */
@@ -163,8 +180,7 @@ export class SoundPlayer {
     this.closed = true;
     this.stopAmbient();
     this.unsubscribe();
-    window.removeEventListener('pointerdown', this.unlock);
-    window.removeEventListener('keydown', this.unlock);
+    for (const type of UNLOCK_EVENTS) window.removeEventListener(type, this.unlock);
     this.context?.close().catch(() => {
       // already closed
     });
@@ -209,10 +225,20 @@ export class SoundPlayer {
 
   /** Resumes audio after a user interaction (browser autoplay rules). */
   private readonly unlock = (): void => {
-    if (this.context?.state === 'suspended' && !this.closed) {
-      this.context.resume().catch(() => {
-        // still blocked: try again on the next interaction
-      });
+    const context = this.context;
+    if (!context || this.closed || context.state === 'running') return;
+    context.resume().catch(() => {
+      // still blocked: try again on the next interaction
+    });
+    // Older iPhones only fully unlock after a sound starts inside the touch
+    // itself: play one silent sample.
+    try {
+      const silent = context.createBufferSource();
+      silent.buffer = context.createBuffer(1, 1, context.sampleRate);
+      silent.connect(context.destination);
+      silent.start();
+    } catch {
+      // ignore
     }
   };
 

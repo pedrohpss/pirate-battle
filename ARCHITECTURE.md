@@ -132,7 +132,7 @@ publishSnapshot(); // to the MatchStore
 - **Events:** shots, impacts (water, island or ship) and explosions. At most one sound of each kind per frame, so a 3-shot broadside is one "boom".
 - **Status:** a start sound and the ocean loop when the match runs, a pause sound and silence while paused, a resume sound, and a "complete" or "game over" sound at the end. A warning sound plays once at 10 seconds left.
 - **Loading and failures:** files load in parallel with the textures, and the match never waits for them. A missing file or blocked audio just means silence for that sound, never an error.
-- **Browser rules:** audio is only allowed after a user interaction. The context is created after the player clicks Play and is resumed on the next key or touch if the browser kept it suspended.
+- **Browser rules:** audio is only allowed after a user interaction. The context is created after the player clicks Play and, if the browser kept it suspended, is resumed on the next key press or the end of a touch (iPhones do not accept the start of a touch), playing one silent sample to fully unlock older iPhones. On iOS 17+ the audio session is set to `playback`, so the side silent switch does not mute the game.
 - **Mute:** `src/settings/sound.ts` is a small store saved in `localStorage`. The HUD button (`aria-pressed`) and the `M` key toggle it; the player sets the master volume to 0.
 - **Lifecycle:** `GameSession.destroy()` stops the loop and closes the audio context, so nothing keeps playing in the menu.
 - **Tests and profiling** run silent (no audio context), so they stay fast and repeatable; the mute setting itself is tested.
